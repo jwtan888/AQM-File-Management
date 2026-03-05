@@ -3,74 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Car Plate Registry</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Vehicle Verification</title>
     <style>
-        body { background-color: #f1f5f9; font-family: sans-serif; }
-        .card { background: white; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f2f5; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 300px; }
+        input { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 18px; text-transform: uppercase; }
+        button { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
         
-        /* The Clown Overlay */
-        #clownOverlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: black;
-            z-index: 9999;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
+        /* The Clown Screen */
+        #clown {
+            display: none; 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: black; color: white; z-index: 100;
+            flex-direction: column; justify-content: center; align-items: center;
         }
-        .clown-emoji { font-size: 150px; animation: shake 0.5s infinite; }
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-        }
+        .emoji { font-size: 120px; }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-6">
+<body>
 
-    <div class="card p-8 w-full max-w-md">
-        <h1 class="text-2xl font-bold text-slate-800 mb-2">Vehicle Verification</h1>
-        <p class="text-slate-500 text-sm mb-6">Please enter your car plate number to proceed to the investment portal.</p>
-        
-        <div class="space-y-4">
-            <div>
-                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Car Plate Number</label>
-                <input type="text" id="carPlate" placeholder="ABC 1234" 
-                    class="w-full mt-1 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none uppercase">
-            </div>
-            
-            <button onclick="showClown()" 
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all active:scale-95">
-                Next Step
-            </button>
-        </div>
+    <div class="card">
+        <h2>Enter Car Plate</h2>
+        <input type="text" id="plate" placeholder="ABC 1234">
+        <button id="nextBtn">Next Step</button>
     </div>
 
-    <div id="clownOverlay">
-        <div class="clown-emoji">🤡</div>
-        <h2 class="text-white text-4xl font-black mt-8">HONK! HONK!</h2>
-        <p class="text-white mt-4 opacity-75">Gotcha!</p>
-        <button onclick="hideClown()" class="mt-10 text-slate-400 underline">Close</button>
+    <div id="clown">
+        <div class="emoji">🤡</div>
+        <h1 style="font-size: 50px;">GOTCHA!</h1>
+        <p>Honk Honk!</p>
+        <button onclick="location.reload()" style="width: auto; background: #444;">Back</button>
     </div>
 
     <script>
-        function showClown() {
-            const plate = document.getElementById('carPlate').value;
-            if (plate.trim() === "") {
-                alert("Please enter a plate number first!");
-                return;
+        // We use a different way to click to make it more reliable
+        document.getElementById('nextBtn').addEventListener('click', function() {
+            var val = document.getElementById('plate').value;
+            if(val === "") {
+                alert("Enter plate number first!");
+            } else {
+                document.getElementById('clown').style.display = 'flex';
             }
-            
-            // Show the clown overlay
-            document.getElementById('clownOverlay').style.display = 'flex';
-            
-            // Optional: Play a sound (if you want to add an audio file later)
-            // let audio = new Audio
+        });
+    </script>
+
+</body>
+</html>
