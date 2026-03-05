@@ -1,50 +1,50 @@
 async function addEntry() {
-            const m = document.getElementById('mID').value;
-            const pic = document.getElementById('picName').value;
-            const f = document.getElementById('fName').value;
-            const t = document.getElementById('sTime').value;
-            const isNewRequest = document.getElementById('requestToggle').checked;
+    const m = document.getElementById('mID').value;
+    const pic = document.getElementById('picName').value;
+    const f = document.getElementById('fName').value;
+    const t = document.getElementById('sTime').value;
+    const isNewRequest = document.getElementById('requestToggle').checked;
 
-            if(!pic || !f || !t) return alert("Please fill in PIC, File Name, and Time.");
+    if(!pic || !f || !t) return alert("Please fill in PIC, File Name, and Time.");
 
-            const entry = {
-                timestamp: new Date().toLocaleString(),
-                machine: m,
-                pic: pic,
-                type: isNewRequest ? "NEW REQUEST" : "SETTING",
-                file: f,
-                time: t.toString()
-            };
+    const entry = {
+        timestamp: new Date().toLocaleString(),
+        machine: m,
+        pic: pic,
+        type: isNewRequest ? "NEW REQUEST" : "SETTING",
+        file: f,
+        time: t.toString()
+    };
 
-            const btn = document.getElementById('submitBtn');
-            btn.innerText = "Syncing...";
-            btn.disabled = true;
+    const btn = document.getElementById('submitBtn');
+    btn.innerText = "Syncing...";
+    btn.disabled = true;
 
-            try {
-                // We use URLSearchParams which is 'CORS-safe' 
-                // This sends the data in a way Microsoft Power Automate can receive without errors
-                await fetch(powerAutomateURL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify(entry) 
-                });
+    try {
+        // Fix: Removed 'headers' to allow 'no-cors' to work without browser errors
+        await fetch(powerAutomateURL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify(entry) 
+        });
 
-                // Since 'no-cors' doesn't return a status, we log it locally
-                allRecords.unshift(entry);
-                localStorage.setItem('factory_logs_v4', JSON.stringify(allRecords));
-                
-                document.getElementById('fName').value = '';
-                document.getElementById('sTime').value = '';
-                document.getElementById('requestToggle').checked = false;
-                applyFilters();
-                
-                alert("Record Processed! Please check Excel in 10 seconds.");
+        // Add to local history for immediate display
+        allRecords.unshift(entry);
+        localStorage.setItem('factory_logs_v4', JSON.stringify(allRecords));
+        
+        // Clear inputs for the next entry
+        document.getElementById('fName').value = '';
+        document.getElementById('sTime').value = '';
+        document.getElementById('requestToggle').checked = false;
+        
+        applyFilters();
+        alert("Record sent! Please check Excel in a few moments.");
 
-            } catch (error) {
-                console.error("Submission Error:", error);
-                alert("Network Error: Could not reach the server.");
-            } finally {
-                btn.innerText = "Add Record";
-                btn.disabled = false;
-            }
-        }
+    } catch (error) {
+        console.error("Submission Error:", error);
+        alert("Network Error: Could not reach the server.");
+    } finally {
+        btn.innerText = "Add Record";
+        btn.disabled = false;
+    }
+}
