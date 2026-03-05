@@ -47,7 +47,7 @@
                 </select>
                 <input type="text" id="fName" placeholder="File Name" class="p-2 border rounded text-sm">
                 <input type="number" id="sTime" placeholder="Setting Time (min)" class="p-2 border rounded text-sm">
-                <button onclick="addEntry()" id="submitBtn" class="bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700 shadow-md transition-all active:scale-95">Add Record</button>
+                <button onclick="addEntry()" id="submitBtn" class="bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700 shadow-md">Add Record</button>
             </div>
         </div>
 
@@ -82,20 +82,21 @@
                         <th class="p-3 font-semibold text-slate-600">PIC</th>
                         <th class="p-3 font-semibold text-slate-600">Type</th>
                         <th class="p-3 font-semibold text-slate-600">File Name</th>
-                        <th class="p-3 font-semibold text-slate-600">Time (Min)</th>
+                        <th class="p-3 font-semibold text-slate-600">Time</th>
+                        <th class="p-3 font-semibold text-slate-600 text-center">Action</th>
                     </tr>
                 </thead>
                 <tbody id="logTable">
-                    <tr><td colspan="6" class="p-10 text-center text-slate-400 italic">No records found. Enter data to start logging.</td></tr>
+                    <tr><td colspan="7" class="p-10 text-center text-slate-400 italic">No records found.</td></tr>
                 </tbody>
             </table>
         </div>
 
         <div class="mt-6 flex justify-between items-center">
-            <button onclick="exportToExcel()" class="bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-emerald-700 shadow-md transition-all active:scale-95">
+            <button onclick="exportToExcel()" class="bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-emerald-700 shadow-md">
                 📥 Export Local Backup (.csv)
             </button>
-            <button onclick="clearLogs()" class="text-red-400 text-xs hover:text-red-600 font-medium">Clear History</button>
+            <button onclick="clearLogs()" class="text-red-400 text-xs hover:text-red-600 font-medium">Clear All History</button>
         </div>
     </div>
 
@@ -123,9 +124,10 @@
             const t = document.getElementById('sTime').value;
             const isNewRequest = document.getElementById('requestToggle').checked;
 
-            if(!pic || !f || !t) return; // Silent stop if empty
+            if(!pic || !f || !t) return;
 
             const entry = {
+                id: Date.now(), // Unique ID for deletion
                 timestamp: new Date().toLocaleString(),
                 machine: m,
                 pic: pic,
@@ -139,32 +141,38 @@
             btn.disabled = true;
 
             try {
-                // Send to Excel Online
                 await fetch(powerAutomateURL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(entry)
                 });
-
-                // Update Local UI
+                
                 allRecords.unshift(entry);
                 localStorage.setItem('factory_logs_final', JSON.stringify(allRecords));
                 
-                // Clear inputs
                 document.getElementById('fName').value = '';
                 document.getElementById('sTime').value = '';
                 document.getElementById('requestToggle').checked = false;
                 applyFilters();
 
             } catch (error) {
-                console.error("Sync Error:", error);
-                // Even on error, update local list so production isn't stopped
                 allRecords.unshift(entry);
                 localStorage.setItem('factory_logs_final', JSON.stringify(allRecords));
                 applyFilters();
             } finally {
                 btn.innerText = "Add Record";
                 btn.disabled = false;
+            }
+        }
+
+        function deleteRecord(id) {
+            const pw = prompt("Admin Password Required to Delete:");
+            if (pw === "admin") {
+                allRecords = allRecords.filter(record => record.id !== id);
+                localStorage.setItem('factory_logs_final', JSON.stringify(allRecords));
+                applyFilters();
+            } else if (pw !== null) {
+                alert("Incorrect Password!");
             }
         }
 
@@ -188,7 +196,7 @@
         function updateTable(data) {
             const tbody = document.getElementById('logTable');
             if(data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-slate-400">No matching records.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="p-10 text-center text-slate-400">No matching records.</td></tr>';
                 return;
             }
             tbody.innerHTML = data.map(r => `
@@ -203,6 +211,9 @@
                     </td>
                     <td class="p-3 text-slate-700 font-mono">${r.file}</td>
                     <td class="p-3 font-bold text-slate-800">${r.time} min</td>
+                    <td class="p-3 text-center">
+                        <button onclick="deleteRecord(${r.id})" class="text-red-500 hover:text-red-700 font-bold text-xs uppercase p-1">Delete</button>
+                    </td>
                 </tr>
             `).join('');
         }
@@ -221,10 +232,13 @@
         }
 
         function clearLogs() {
-            if(confirm("Delete local history?")) {
+            const pw = prompt("Admin Password Required to Clear All:");
+            if (pw === "admin") {
                 allRecords = [];
                 localStorage.removeItem('factory_logs_final');
                 applyFilters();
+            } else if (pw !== null) {
+                alert("Incorrect Password!");
             }
         }
         applyFilters();
