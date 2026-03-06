@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M&A Industrial Log</title>
+    <title>Auto Template Machine Setting Log</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .machine-btn:active { transform: scale(0.95); }
-        .active-filter { border-color: #2563eb; background-color: #eff6ff; color: #1e40af; border-width: 2px; }
+        .active-filter { border-color: #2563eb; background-color: #eff6ff; color: #1e40af; border-width: 2px; font-weight: 800; }
         .tab-active { border-bottom: 4px solid #2563eb; color: #2563eb; font-weight: 800; }
         .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -17,57 +17,53 @@
         input:checked + .slider:before { transform: translateX(22px); }
         @keyframes pulse-green { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .sync-active { animation: pulse-green 2s infinite; }
+        td { font-size: 0.75rem; line-height: 1rem; } 
     </style>
 </head>
 <body class="bg-slate-50 p-4 font-sans text-slate-900">
-    <div class="max-w-7xl mx-auto">
+    <div class="max-w-[1600px] mx-auto">
         <header class="mb-4 flex flex-row justify-between items-center bg-white p-6 rounded-t-xl border-x border-t shadow-sm">
             <div class="flex-shrink-0">
                 <h1 class="text-xl md:text-3xl font-bold text-slate-800 leading-tight" id="mainTitle">Template Requests</h1>
                 <p class="text-slate-400 text-lg font-light tracking-[0.2em] mt-1 uppercase">M&A</p>
             </div>
-            <div class="flex items-center justify-end ml-4">
-                <img src="logo.png" alt="M&A Logo" class="h-6 md:h-8 w-auto object-contain opacity-90">
+            
+            <div id="userSessionArea" class="flex items-center gap-3 bg-slate-50 border p-2 rounded-xl shadow-inner">
+                <div id="loginView" class="flex items-center gap-2">
+                    <select id="userSelect" class="text-xs font-bold p-2 border rounded bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select User...</option>
+                        <option>Keat</option><option>Viki</option><option>Ram</option>
+                        <option>James</option><option>Phone</option><option>Mark</option><option>Joe</option>
+                    </select>
+                    <button onclick="login()" class="bg-slate-800 text-white text-[10px] font-bold px-4 py-2 rounded uppercase hover:bg-blue-600 transition-all">Login</button>
+                </div>
+                <div id="activeUserView" class="hidden flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-tighter">Active: <span id="displayUserName" class="text-blue-600 ml-1">---</span></span>
+                    <button onclick="logout()" class="text-[10px] font-bold text-red-500 border border-red-200 px-2 py-1 rounded hover:bg-red-50">Logout</button>
+                </div>
+                <img src="logo.png" alt="M&A Logo" class="h-6 md:h-8 w-auto object-contain opacity-90 ml-2">
             </div>
         </header>
 
         <nav class="flex bg-white border-x border-b rounded-b-xl mb-6 shadow-sm overflow-hidden">
-            <button onclick="switchTab('template')" id="tab-template" class="flex-1 py-4 text-sm uppercase tracking-widest font-bold text-slate-400 border-b-4 border-transparent hover:bg-slate-50 tab-active">
-                Template Requests
-            </button>
-            <button onclick="switchTab('setting')" id="tab-setting" class="flex-1 py-4 text-sm uppercase tracking-widest font-bold text-slate-400 border-b-4 border-transparent hover:bg-slate-50">
-                Machine Setting
-            </button>
+            <button onclick="switchTab('template')" id="tab-template" class="flex-1 py-4 text-sm uppercase tracking-widest font-bold text-slate-400 border-b-4 border-transparent hover:bg-slate-50 tab-active">Template Requests</button>
+            <button onclick="switchTab('setting')" id="tab-setting" class="flex-1 py-4 text-sm uppercase tracking-widest font-bold text-slate-400 border-b-4 border-transparent hover:bg-slate-50">Machine Setting</button>
         </nav>
 
         <div id="content-template" class="tab-content">
             <div class="bg-white p-6 rounded-xl border shadow-sm mb-4">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Search Templates:</h3>
-                    <span id="tempSyncStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Checking...</span>
+                <div class="flex justify-between items-center mb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <h3>Search Templates:</h3>
+                    <span id="tempSyncStatus">Checking...</span>
                 </div>
-                <input type="text" id="tempSearch" oninput="applyTempFilters()" placeholder="Search Style, Template No, or PIC..." 
-                    class="w-full p-2.5 border rounded-lg bg-slate-50 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" id="tempSearch" oninput="applyTempFilters()" placeholder="Search Style, Job No, or PIC..." class="w-full p-2.5 border rounded-lg bg-slate-50 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
-
             <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                    <thead class="bg-slate-100 border-b">
-                        <tr>
-                            <th class="p-3 font-semibold text-slate-600">ID</th>
-                            <th class="p-3 font-semibold text-slate-600">Start Time</th>
-                            <th class="p-3 font-semibold text-slate-600">Style Number</th>
-                            <th class="p-3 font-semibold text-slate-600">Request Type</th>
-                            <th class="p-3 font-semibold text-slate-600">Machine</th>
-                            <th class="p-3 font-semibold text-slate-600">Required Date</th>
-                            <th class="p-3 font-semibold text-slate-600">Template No</th>
-                            <th class="p-3 font-semibold text-slate-600">Status</th>
-                            <th class="p-3 font-semibold text-slate-600">M&A PIC</th>
-                        </tr>
+                <table class="w-full text-left">
+                    <thead class="bg-slate-100 border-b text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                        <tr><th class="p-3">ID</th><th class="p-3">Start Time</th><th class="p-3">Requestor</th><th class="p-3">Style</th><th class="p-3">Job No</th><th class="p-3">Machine</th><th class="p-3">Required</th><th class="p-3">Status</th><th class="p-3">M&A PIC</th><th class="p-3">Complete Time</th></tr>
                     </thead>
-                    <tbody id="tempTable">
-                        <tr><td colspan="9" class="p-10 text-center text-slate-400 italic">Syncing Template Master...</td></tr>
-                    </tbody>
+                    <tbody id="tempTable" class="text-slate-700"></tbody>
                 </table>
             </div>
         </div>
@@ -78,249 +74,132 @@
                     <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest">New Log Entry</h2>
                     <div class="flex items-center gap-3 bg-slate-50 px-3 py-2 rounded-lg border">
                         <span class="text-sm font-semibold text-slate-700">New Template Request</span>
-                        <label class="switch">
-                            <input type="checkbox" id="requestToggle">
-                            <span class="slider"></span>
-                        </label>
+                        <label class="switch"><input type="checkbox" id="requestToggle"><span class="slider"></span></label>
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
                     <select id="mID" class="p-2 border rounded bg-white text-sm font-bold text-blue-800">
-                        <option value="AQM0001">AQM0001 (ZJ-AM5770AH-750)</option>
-                        <option value="AQM0002">AQM0002 (ZJ-AMS-AH-RK900)</option>
-                        <option value="AQM0003">AQM0003 (ZJ-M5-S900H-SF)</option>
-                        <option value="AQM0004">AQM0004 (ZJ-M5-S900H-SF)</option>
-                        <option value="AQM0005">AQM0005 (JTK8T-8037AJS)</option>
-                        <option value="AQM0006">AQM0006 (M9-SS-F13-X)</option>
-                        <option value="AQM0007">AQM0007 (JTK8T-8037AJS)</option>
-                        <option value="AQM0008">AQM0008 (JTK8T-8037AJS)</option>
+                        <option value="AQM0001">AQM0001 (ZOJE)</option><option value="AQM0002">AQM0002 (ZOJE)</option><option value="AQM0003">AQM0003 (ZOJE)</option><option value="AQM0004">AQM0004 (ZOJE)</option><option value="AQM0005">AQM0005 (JUITA)</option><option value="AQM0006">AQM0006 (JACK)</option><option value="AQM0007">AQM0007 (JUITA)</option><option value="AQM0008">AQM0008 (JUITA)</option>
                     </select>
                     <select id="picName" class="p-2 border rounded bg-white text-sm">
-                        <option value="">Select PIC</option>
-                        <option>Keat</option><option>Viki</option><option>Ram</option>
-                        <option>James</option><option>Phone</option><option>Mark</option><option>Joe</option>
+                        <option value="">Select PIC</option><option>Keat</option><option>Viki</option><option>Ram</option><option>James</option><option>Phone</option><option>Mark</option><option>Joe</option>
                     </select>
-                    <input type="text" id="fName" placeholder="File Name / Style" class="p-2 border rounded text-sm">
-                    <input type="number" id="sTime" placeholder="Setting Time (min)" class="p-2 border rounded text-sm">
+                    <input type="text" id="fName" placeholder="File Name / Style" class="p-2 border rounded text-sm"><input type="number" id="sTime" placeholder="Setting Time (min)" class="p-2 border rounded text-sm">
                     <button onclick="addEntry()" id="submitBtn" class="bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700 shadow-md transition-all active:scale-95">Add Record</button>
                 </div>
             </div>
-
             <div class="mb-4 bg-white p-6 rounded-xl border shadow-sm">
-                <h3 class="text-xs font-bold text-slate-400 uppercase mb-3 tracking-widest">Filter by Machine:</h3>
+                <div class="flex items-center justify-between mb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    <h3>Filter by Machine ID:</h3>
+                    <div id="machineDetailBox" class="text-blue-600 bg-blue-50 px-3 py-1 rounded hidden border border-blue-100"></div>
+                </div>
                 <div class="flex flex-wrap gap-2 mb-6" id="filterContainer">
                     <button onclick="setMachineFilter('ALL')" id="btn-ALL" class="machine-btn px-5 py-1.5 border rounded-full text-sm bg-white active-filter shadow-sm">ALL</button>
                 </div>
-                <div class="flex justify-between items-end mb-2">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Search History:</h3>
-                    <span id="syncStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Syncing...</span>
+                <div class="flex justify-between items-end mb-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    <h3>Search History:</h3><span id="syncStatus">Syncing...</span>
                 </div>
-                <input type="text" id="fileSearch" oninput="applyFilters()" placeholder="Search PIC or File..." 
-                    class="w-full p-2.5 border rounded-lg bg-slate-50 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" id="fileSearch" oninput="applyFilters()" placeholder="Search PIC or File..." class="w-full p-2.5 border rounded-lg bg-slate-50 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
-
             <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-slate-100 border-b">
-                        <tr>
-                            <th class="p-3 font-semibold text-slate-600">Timestamp</th>
-                            <th class="p-3 font-semibold text-slate-600">Machine</th>
-                            <th class="p-3 font-semibold text-slate-600">PIC</th>
-                            <th class="p-3 font-semibold text-slate-600">Type</th>
-                            <th class="p-3 font-semibold text-slate-600">File Name</th>
-                            <th class="p-3 font-semibold text-slate-600">Time</th>
-                        </tr>
+                <table class="w-full text-left">
+                    <thead class="bg-slate-100 border-b text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                        <tr><th class="p-3">Timestamp</th><th class="p-3">Machine ID</th><th class="p-3">PIC</th><th class="p-3">Type</th><th class="p-3">File Name</th><th class="p-3">Time</th></tr>
                     </thead>
-                    <tbody id="logTable">
-                        <tr><td colspan="6" class="p-10 text-center text-slate-400 italic">Syncing Machine Logs...</td></tr>
-                    </tbody>
+                    <tbody id="logTable" class="text-slate-700"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
     <script>
-        // CONFIG
         const postURL = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/8467b362b45c4408a5c3b36138d34d8d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=kYDfwYnTE9IU71pqIibsp0QU2WYzQ0zORaGj2bjaDAs";
         const fetchURL = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/47006a48f8764a49ab01dbb665617acf/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=2eqeoBWF-80BETYDfV2HdHZeqJW7-fDYjd3GXri1wNo";
         const templateFetchURL = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/81581050d13a4df09275905e9e05e2df/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=yWugYHV-OyqB2yVi3eSd94XXEA2CgOngdaCVf83xBtA";
+        const updateURL = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a37c891f30994fef90aac14c55e2388e/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=6ostk6jCT6jb4Nx4lBi6fO_56axOeQPPm9Oo1_hcw7c";
 
-        const machineSpecs = {
-            "AQM0001": { brand: "ZOJE", model: "ZJ-AM5770AH-750" },
-            "AQM0002": { brand: "ZOJE", model: "ZJ-AMS-AH-RK900" },
-            "AQM0003": { brand: "ZOJE", model: "ZJ-M5-S900H-SF" },
-            "AQM0004": { brand: "ZOJE", model: "ZJ-M5-S900H-SF" },
-            "AQM0005": { brand: "JUITA", model: "JTK8T-8037AJS" },
-            "AQM0006": { brand: "JACK", model: "M9-SS-F13-X" },
-            "AQM0007": { brand: "JUITA", model: "JTK8T-8037AJS" },
-            "AQM0008": { brand: "JUITA", model: "JTK8T-8037AJS" }
-        };
+        const machineSpecs = { "AQM0001": { brand: "ZOJE", model: "ZJ-AM5770AH-750" }, "AQM0002": { brand: "ZOJE", model: "ZJ-AMS-AH-RK900" }, "AQM0003": { brand: "ZOJE", model: "ZJ-M5-S900H-SF" }, "AQM0004": { brand: "ZOJE", model: "ZJ-M5-S900H-SF" }, "AQM0005": { brand: "JUITA", model: "JTK8T-8037AJS" }, "AQM0006": { brand: "JACK", model: "M9-SS-F13-X" }, "AQM0007": { brand: "JUITA", model: "JTK8T-8037AJS" }, "AQM0008": { brand: "JUITA", model: "JTK8T-8037AJS" } };
+        let allRecords = [], allTemplates = [], currentUser = localStorage.getItem('ma_session_user') || null;
 
-        let allRecords = [];
-        let allTemplates = [];
-        let currentMachineFilter = 'ALL';
+        function switchTab(t) { document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden')); document.getElementById(`content-${t}`).classList.remove('hidden'); document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active')); document.getElementById(`tab-${t}`).classList.add('tab-active'); document.getElementById('mainTitle').innerText = t === 'template' ? 'Template Requests' : 'Auto Template Machine Setting Log'; }
+        function login() { const u = document.getElementById('userSelect').value; if (!u) return alert("Select Name"); localStorage.setItem('ma_session_user', u); currentUser = u; updateSessionUI(); applyTempFilters(); }
+        function logout() { localStorage.removeItem('ma_session_user'); currentUser = null; updateSessionUI(); applyTempFilters(); }
+        function updateSessionUI() { const lv = document.getElementById('loginView'), av = document.getElementById('activeUserView'); if (currentUser) { lv.classList.add('hidden'); av.classList.remove('hidden'); document.getElementById('displayUserName').innerText = currentUser; } else { lv.classList.remove('hidden'); av.classList.add('hidden'); } }
+        
+        function convertExcelDate(v, t = true) {
+            if (!v || v === "---") return "---";
+            const date = isNaN(v) ? new Date(v) : new Date(Math.round((v - 25569) * 86400 * 1000));
+            return date.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', ...(t && { hour:'2-digit', minute:'2-digit' }) });
+        }
+        function getVal(item, keys) { for (let k of Object.keys(item)) { for (let target of keys) { if (k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(target.toLowerCase().replace(/[^a-z0-9]/g, ''))) return item[k]; } } return "---"; }
 
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`content-${tabName}`).classList.remove('hidden');
-            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('tab-active'));
-            document.getElementById(`tab-${tabName}`).classList.add('tab-active');
-            document.getElementById('mainTitle').innerText = tabName === 'template' ? 'Template Requests' : 'Machine Setting Log';
+        async function completeTask(id, pic) {
+            if (currentUser !== pic) return alert("Unauthorized");
+            if (!confirm("Confirm Complete?")) return;
+            const btn = event.target; btn.innerText = "..."; btn.disabled = true;
+            try {
+                const res = await fetch(updateURL, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ recordID: id, pic: currentUser, completionDate: new Date().toISOString() }) });
+                if(res.ok) { alert("Done!"); refreshTemplateLogs(); } else { alert("Sync Error - Check Flow"); btn.innerText = "DONE"; btn.disabled = false; }
+            } catch (e) { alert("Fail"); btn.innerText = "DONE"; btn.disabled = false; }
         }
 
-        // --- TEMPLATE TAB LOGIC ---
-        async function refreshTemplateLogs(isSilent = false) {
-            const status = document.getElementById('tempSyncStatus');
-            if(!isSilent) { status.innerText = "Syncing..."; status.classList.add('sync-active'); }
+        async function refreshTemplateLogs(s = false) {
+            const st = document.getElementById('tempSyncStatus'); if(!s) st.classList.add('sync-active');
             try {
-                const response = await fetch(templateFetchURL, { method: 'POST', body: JSON.stringify({}) });
-                const data = await response.json();
-                allTemplates = data.map(item => ({
-                    id: getVal(item, ['Id', 'ID']),
-                    startTime: cleanDate(getVal(item, ['Start time', 'StartTime'])),
-                    style: getVal(item, ['Style Number', 'StyleNumber', 'Style']),
-                    reqType: getVal(item, ['Template Request Type', 'RequestType']),
-                    machine: getVal(item, ['Machine Type', 'MachineType']),
-                    requiredDate: cleanDate(getVal(item, ['Required Date', 'RequiredDate'])),
-                    templateNo: getVal(item, ['Template No.', 'TemplateNo']),
-                    completeDate: getVal(item, ['Complete Date', 'CompleteDate']),
-                    pic: getVal(item, ['M&A PIC', 'PIC']),
-                    sortDate: new Date(getVal(item, ['Start time', 'StartTime']))
-                })).sort((a, b) => b.sortDate - a.sortDate);
-                status.innerText = "LIVE: " + new Date().toLocaleTimeString();
-                status.classList.remove('sync-active');
-                applyTempFilters();
-            } catch (error) { status.innerText = "Error Syncing"; }
+                const r = await fetch(templateFetchURL, { method: 'POST', body: JSON.stringify({}) });
+                const d = await r.json();
+                allTemplates = d.map(i => ({ id: getVal(i, ['Id']), startTime: convertExcelDate(getVal(i, ['Start time'])), requestor: getVal(i, ['Requestor']), style: getVal(i, ['Style Number']), jobNo: getVal(i, ['Job Number']), machine: getVal(i, ['Machine Type']), requiredDate: convertExcelDate(getVal(i, ['Required Date']), false), completeDate: getVal(i, ['Complete Date']), pic: getVal(i, ['M&A PIC']), raw: getVal(i, ['Start time']) })).sort((a,b)=>b.raw - a.raw);
+                st.innerText = "LIVE: " + new Date().toLocaleTimeString(); st.classList.remove('sync-active'); applyTempFilters();
+            } catch (e) { st.innerText = "Error"; }
         }
 
         function applyTempFilters() {
-            const searchVal = document.getElementById('tempSearch').value.toLowerCase();
-            const filtered = allTemplates.filter(t => 
-                String(t.style).toLowerCase().includes(searchVal) || 
-                String(t.templateNo).toLowerCase().includes(searchVal) ||
-                String(t.pic).toLowerCase().includes(searchVal)
-            );
-            const tbody = document.getElementById('tempTable');
-            if(filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="p-10 text-center text-slate-400 italic">No templates found.</td></tr>';
-                return;
-            }
-            tbody.innerHTML = filtered.map(t => `
-                <tr class="border-b hover:bg-slate-50 transition-colors">
-                    <td class="p-3 text-slate-400 font-mono">${t.id}</td>
-                    <td class="p-3 whitespace-nowrap">${t.startTime}</td>
-                    <td class="p-3 font-bold text-slate-800">${t.style}</td>
-                    <td class="p-3"><span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">${t.reqType}</span></td>
-                    <td class="p-3 font-medium text-blue-600">${t.machine}</td>
-                    <td class="p-3 text-red-600 font-bold">${t.requiredDate}</td>
-                    <td class="p-3 font-mono font-bold">${t.templateNo}</td>
-                    <td class="p-3">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${t.completeDate && t.completeDate !== '---' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">
-                            ${t.completeDate && t.completeDate !== '---' ? 'COMPLETED' : 'PENDING'}
-                        </span>
-                    </td>
-                    <td class="p-3 font-medium">${t.pic}</td>
-                </tr>
-            `).join('');
+            const sv = document.getElementById('tempSearch').value.toLowerCase();
+            const f = allTemplates.filter(t => Object.values(t).some(v => String(v).toLowerCase().includes(sv)));
+            document.getElementById('tempTable').innerHTML = f.map(t => {
+                const done = t.completeDate && t.completeDate !== '---', mine = currentUser === t.pic;
+                return `<tr class="border-b hover:bg-slate-50 transition-colors"><td class="p-3 text-slate-400 font-mono">${t.id}</td><td class="p-3 whitespace-nowrap">${t.startTime}</td><td class="p-3">${t.requestor}</td><td class="p-3 font-bold">${t.style}</td><td class="p-3 font-bold">${t.jobNo}</td><td class="p-3 font-medium text-blue-600">${t.machine}</td><td class="p-3 text-red-600 font-bold">${t.requiredDate}</td><td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${done ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">${done ? 'COMPLETED' : 'PENDING'}</span></td><td class="p-3 font-medium ${mine ? 'text-blue-700 underline underline-offset-4' : ''}">${t.pic}</td><td class="p-3">${done ? `<span class="text-[10px] text-emerald-600 font-bold">${convertExcelDate(t.completeDate)}</span>` : (mine ? `<button onclick="completeTask('${t.id}', '${t.pic}')" class="bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded shadow hover:bg-blue-700">DONE</button>` : `<span class="text-[9px] text-slate-300 italic uppercase tracking-tighter">Locked</span>`)}</td></tr>`;
+            }).join('');
         }
 
-        // --- MACHINE SETTING LOGIC ---
-        const filterContainer = document.getElementById('filterContainer');
-        Object.keys(machineSpecs).forEach(m => {
-            const btn = document.createElement('button');
-            btn.innerText = m; btn.id = `btn-${m}`;
-            btn.className = "machine-btn px-4 py-1.5 border rounded-full text-sm bg-white shadow-sm hover:border-blue-300 transition-all";
-            btn.onclick = () => setMachineFilter(m);
-            filterContainer.appendChild(btn);
-        });
+        const mList = Object.keys(machineSpecs);
+        mList.forEach(m => { const b = document.createElement('button'); b.innerText = m; b.id = `btn-${m}`; b.className = "machine-btn px-4 py-1.5 border rounded-full text-sm bg-white shadow-sm hover:border-blue-300 transition-all"; b.onclick = () => setMachineFilter(m); document.getElementById('filterContainer').appendChild(b); });
 
-        async function refreshLiveLogs(isSilent = false) {
-            const status = document.getElementById('syncStatus');
-            if(!isSilent) { status.innerText = "Syncing..."; status.classList.add('sync-active'); }
+        async function refreshLiveLogs(s = false) {
+            const st = document.getElementById('syncStatus'); if(!s) st.classList.add('sync-active');
             try {
-                const response = await fetch(fetchURL, { method: 'POST', body: JSON.stringify({}) });
-                const data = await response.json();
-                allRecords = data.map(item => {
-                    const rawDateStr = getVal(item, ['Timestamp', 'Date', 'DateTime', 'Time']);
-                    return {
-                        timestamp: cleanDate(rawDateStr),
-                        sortDate: new Date(rawDateStr), 
-                        machine: getVal(item, ['Machine', 'MachineID', 'mID']),
-                        pic: getVal(item, ['PIC', 'Operator', 'Name']),
-                        type: getVal(item, ['Type', 'LogType']),
-                        file: getVal(item, ['FileName', 'file name', 'Style']),
-                        time: getVal(item, ['Time', 'SettingTime', 'Minutes'])
-                    };
-                }).sort((a, b) => b.sortDate - a.sortDate);
-                status.innerText = "LIVE: " + new Date().toLocaleTimeString();
-                status.classList.remove('sync-active');
-                applyFilters();
-            } catch (error) { status.innerText = "Network Busy..."; }
-        }
-
-        // UTILITIES
-        function getVal(item, searchKeys) {
-            for (let target of searchKeys) {
-                if (item[target] !== undefined && item[target] !== null) return item[target];
-                for (let key in item) {
-                    if (key.toLowerCase().replace(/[^a-z0-9]/g, '') === target.toLowerCase().replace(/[^a-z0-9]/g, '')) return item[key];
-                }
-            }
-            return "---";
-        }
-
-        function cleanDate(val) {
-            if (!val || val === "---") return "---";
-            let s = val.toString().trim();
-            const parsed = new Date(s);
-            if (!isNaN(parsed.getTime())) return parsed.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' });
-            return s;
+                const r = await fetch(fetchURL, { method: 'POST', body: JSON.stringify({}) });
+                const d = await r.json();
+                allRecords = d.map(i => ({ timestamp: convertExcelDate(getVal(i, ['Timestamp'])), machine: getVal(i, ['Machine']), pic: getVal(i, ['PIC']), type: getVal(i, ['Type']), file: getVal(i, ['FileName']), time: getVal(i, ['Time']), raw: getVal(i, ['Timestamp']) })).sort((a,b)=>b.raw - a.raw);
+                st.innerText = "LIVE: " + new Date().toLocaleTimeString(); st.classList.remove('sync-active'); applyFilters();
+            } catch (e) {}
         }
 
         async function addEntry() {
-            const m = document.getElementById('mID').value;
-            const pic = document.getElementById('picName').value;
-            const f = document.getElementById('fName').value;
-            const t = document.getElementById('sTime').value;
-            const isNewRequest = document.getElementById('requestToggle').checked;
-            if(!pic || !f || !t) return alert("Please fill all fields");
-            const btn = document.getElementById('submitBtn');
-            btn.innerText = "Saving..."; btn.disabled = true;
-            const entry = { timestamp: new Date().toLocaleString(), machine: m, pic: pic, type: isNewRequest ? "NEW REQUEST" : "SETTING", file: f, time: t.toString() };
+            const m = document.getElementById('mID').value, p = document.getElementById('picName').value, f = document.getElementById('fName').value, t = document.getElementById('sTime').value, isN = document.getElementById('requestToggle').checked;
+            if(!p || !f || !t) return alert("Fill all fields");
+            const b = document.getElementById('submitBtn'); b.innerText = "Saving..."; b.disabled = true;
             try {
-                const res = await fetch(postURL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry) });
-                if(res.ok) { document.getElementById('fName').value = ''; document.getElementById('sTime').value = ''; setTimeout(() => refreshLiveLogs(), 2000); }
-            } finally { btn.innerText = "Add Record"; btn.disabled = false; }
+                const res = await fetch(postURL, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({timestamp: new Date().toLocaleString(), machine: m, pic: p, type: isN ? "NEW REQUEST" : "SETTING", file: f, time: t}) });
+                if(res.ok) { document.getElementById('fName').value = ''; document.getElementById('sTime').value = ''; setTimeout(refreshLiveLogs, 2000); }
+            } finally { b.innerText = "Add Record"; b.disabled = false; }
         }
 
-        function setMachineFilter(machineId) {
-            currentMachineFilter = machineId;
-            document.querySelectorAll('.machine-btn').forEach(b => b.classList.remove('active-filter'));
-            document.getElementById(`btn-${machineId}`).classList.add('active-filter');
+        let curF = 'ALL';
+        function setMachineFilter(m) {
+            curF = m; document.querySelectorAll('.machine-btn').forEach(b => b.classList.remove('active-filter')); document.getElementById(`btn-${m}`).classList.add('active-filter');
+            const box = document.getElementById('machineDetailBox'); if(m === 'ALL') { box.classList.add('hidden'); } else { box.innerText = `${machineSpecs[m].brand} - ${machineSpecs[m].model}`; box.classList.remove('hidden'); }
             applyFilters();
         }
 
         function applyFilters() {
-            const searchVal = document.getElementById('fileSearch').value.toLowerCase();
-            const filtered = allRecords.filter(r => (currentMachineFilter === 'ALL' || r.machine === currentMachineFilter) && (String(r.file).toLowerCase().includes(searchVal) || String(r.pic).toLowerCase().includes(searchVal)));
-            const tbody = document.getElementById('logTable');
-            if(filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-slate-400 italic">No records.</td></tr>'; return; }
-            tbody.innerHTML = filtered.map(r => `
-                <tr class="border-b hover:bg-slate-50 transition-colors">
-                    <td class="p-3 text-slate-400 text-[10px]">${r.timestamp}</td>
-                    <td class="p-3 font-bold text-blue-700">${r.machine}</td>
-                    <td class="p-3 font-medium text-slate-700">${r.pic}</td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.type === 'NEW REQUEST' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}">${r.type}</span></td>
-                    <td class="p-3 text-slate-700 font-mono">${r.file}</td>
-                    <td class="p-3 font-bold text-slate-800">${r.time} min</td>
-                </tr>`).join('');
+            const s = document.getElementById('fileSearch').value.toLowerCase();
+            const f = allRecords.filter(r => (curF==='ALL' || r.machine===curF) && (String(r.file).toLowerCase().includes(s) || String(r.pic).toLowerCase().includes(s)));
+            document.getElementById('logTable').innerHTML = f.map(r => `<tr class="border-b hover:bg-slate-50 transition-colors"><td class="p-3 text-slate-400 font-mono whitespace-nowrap">${r.timestamp}</td><td class="p-3 font-bold text-blue-700">${r.machine}</td><td class="p-3 font-medium">${r.pic}</td><td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.type === 'NEW REQUEST' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}">${r.type}</span></td><td class="p-3 font-mono">${r.file}</td><td class="p-3 font-bold">${r.time} min</td></tr>`).join('');
         }
 
-        // INITIAL LOAD & POLLING
-        refreshLiveLogs();
-        refreshTemplateLogs();
-        setInterval(() => { refreshLiveLogs(true); refreshTemplateLogs(true); }, 10000);
+        updateSessionUI(); refreshTemplateLogs(); refreshLiveLogs();
+        setInterval(() => { refreshTemplateLogs(true); refreshLiveLogs(true); }, 15000);
     </script>
 </body>
 </html>
