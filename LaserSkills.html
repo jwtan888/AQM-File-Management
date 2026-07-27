@@ -266,6 +266,7 @@
             text-transform: uppercase;
             letter-spacing: .05em;
         }
+        .tier-master { background: rgba(244,63,94,.12); color: #f43f5e; border: 1px solid rgba(244,63,94,.3); }
         .tier-expert { background: rgba(245,166,35,.12); color: #f5a623; border: 1px solid rgba(245,166,35,.3); }
         .tier-advanced { background: rgba(74,222,128,.12); color: #4ade80; border: 1px solid rgba(74,222,128,.3); }
         .tier-mid { background: rgba(34,211,238,.12); color: #22d3ee; border: 1px solid rgba(34,211,238,.3); }
@@ -317,6 +318,21 @@
             .report-actions { justify-content: flex-start; }
             .charts-grid { grid-template-columns: 1fr; }
             .pic-grid { grid-template-columns: 1fr; }
+            .skill-index-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 600px) {
+            body { overflow-x: hidden; }
+            .shell { width: 100%; max-width: 100%; padding: .75rem; }
+            header { min-width: 0; padding: 1rem; border-radius: 18px; }
+            .logo-area, .logo-text, .header-right, .report-actions { min-width: 0; }
+            .logo-text h1 { font-size: 1.35rem; }
+            .sync-badge { width: 100%; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
+            .report-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+            .report-btn, .back-link { width: 100%; min-height: 44px; }
+            .kpi-strip, .pic-grid, .charts-grid { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+            .kpi-card, .pic-card, .chart-card { min-width: 0; }
+            .pic-card-header { padding: 1rem; }
+            .pic-card-body, .pic-card-footer { padding-left: 1rem; padding-right: 1rem; }
         }
         @media print {
             @page { size: A4 portrait; margin: 12mm; }
@@ -506,10 +522,10 @@
         </div>
 
         <section class="kpi-strip">
-            <div class="kpi-card" style="--accent-c:#22d3ee"><div class="kpi-label">Rows Used</div><div id="kRows" class="kpi-value" style="color:#22d3ee">0</div><div class="kpi-sub">completed laser rows</div></div>
-            <div class="kpi-card" style="--accent-c:#10b981"><div class="kpi-label">Avg SAM</div><div id="kSam" class="kpi-value" style="color:#10b981">0.0</div><div class="kpi-sub">minutes / operation part</div></div>
-            <div class="kpi-card" style="--accent-c:#6366f1"><div class="kpi-label">Avg Minutes</div><div id="kMinutes" class="kpi-value" style="color:#6366f1">0.0</div><div class="kpi-sub">actual working minutes</div></div>
-            <div class="kpi-card" style="--accent-c:#f59e0b"><div class="kpi-label">Best PIC</div><div id="kBestPic" class="kpi-value" style="font-size:1.5rem;color:#f59e0b">-</div><div class="kpi-sub">lowest qualified avg SAM</div></div>
+            <div class="kpi-card" style="--accent-c:#f43f5e"><div class="kpi-label">Highest Capability Index</div><div id="kBestPic" class="kpi-value" style="font-size:1.5rem;color:#f43f5e">-</div><div id="kBestPicSub" class="kpi-sub">minimum 10 completed rows</div></div>
+            <div class="kpi-card" style="--accent-c:#10b981"><div class="kpi-label">Scored Rows</div><div id="kRows" class="kpi-value" style="color:#10b981">0</div><div id="kRowsSub" class="kpi-sub">completed laser evidence</div></div>
+            <div class="kpi-card" style="--accent-c:#6366f1"><div class="kpi-label">Team Work Mix Index</div><div id="kSam" class="kpi-value" style="color:#6366f1">0.00</div><div class="kpi-sub">all completed rows · out of 5</div></div>
+            <div class="kpi-card" style="--accent-c:#f59e0b"><div class="kpi-label">Most Level 4–5 Rows</div><div id="kMinutes" class="kpi-value" style="color:#f59e0b">0</div><div id="kMinutesSub" class="kpi-sub">completed evidence</div></div>
         </section>
 
         <section class="mb-5">
@@ -521,11 +537,11 @@
             <div class="section-label">Analytics</div>
             <div class="charts-grid">
                 <div class="chart-card">
-                    <div class="chart-title">Average SAM by PIC <span>minutes / operation part</span></div>
+                    <div class="chart-title">Capability Index by PIC <span>complexity-ratio adjusted · out of 5</span></div>
                     <div class="chart-wrap"><canvas id="chartLaserSam"></canvas></div>
                 </div>
                 <div class="chart-card">
-                    <div class="chart-title">Laser Level Breakdown <span>completed rows</span></div>
+                    <div class="chart-title">Team Complexity Mix <span>completed laser evidence</span></div>
                     <div class="chart-wrap"><canvas id="chartLaserLevels"></canvas></div>
                 </div>
             </div>
@@ -536,28 +552,33 @@
             <div class="skill-reference-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:18px;overflow:hidden;backdrop-filter:blur(16px);box-shadow:var(--shadow-sm);">
                 <div class="skill-reference-intro" style="padding:1.5rem 2rem 1rem;border-bottom:1px solid var(--border);">
                     <h2 style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;letter-spacing:-.3px;margin-bottom:.3rem;">How We Classify Laser Skill Level</h2>
-                    <p style="font-size:.75rem;color:var(--muted);line-height:1.5;">Each completed laser row is tagged with a suggested complexity level. A PIC's <strong style="color:var(--text)">Qualified Level</strong> is only shown when they have at least 3 completed rows at that level. Garment quantity is reference only and is not used for skill classification.</p>
+                    <p style="font-size:.75rem;color:var(--muted);line-height:1.5;">Each completed laser row is tagged with a suggested complexity level. <strong style="color:var(--text)">Capability Index</strong> uses the same complexity-ratio adjustment as Template Skills, while Work Mix is the normal all-row average. Laser <strong style="color:var(--text)">Qualified Level</strong> remains the highest level with at least 3 completed rows.</p>
                 </div>
-                <div class="skill-index-grid" style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);">
+                <div class="skill-index-grid" style="display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);">
                     <div style="padding:1rem 1.25rem;border-right:1px solid var(--border);">
-                        <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;">Skill index</div>
-                        <div style="font-size:1.05rem;font-weight:700;color:#94a3b8;font-family:'Syne',sans-serif;white-space:nowrap;">Level 1</div>
-                        <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">Basic</div>
+                        <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;">Capability Index</div>
+                        <div style="font-size:1.05rem;font-weight:700;color:#94a3b8;font-family:'Syne',sans-serif;white-space:nowrap;">1.0 – 1.9</div>
+                        <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">Junior / Basic</div>
                     </div>
                     <div style="padding:1rem 1.25rem;border-right:1px solid var(--border);">
-                        <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;">Skill index</div>
-                        <div style="font-size:1.05rem;font-weight:700;color:#22d3ee;font-family:'Syne',sans-serif;white-space:nowrap;">Level 2</div>
+                        <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;">Capability Index</div>
+                        <div style="font-size:1.05rem;font-weight:700;color:#22d3ee;font-family:'Syne',sans-serif;white-space:nowrap;">2.0 – 2.5</div>
                         <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">Intermediate</div>
                     </div>
                     <div style="padding:1rem 1.25rem;border-right:1px solid var(--border);">
-                        <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;">Skill index</div>
-                        <div style="font-size:1.05rem;font-weight:700;color:#4ade80;font-family:'Syne',sans-serif;white-space:nowrap;">Level 3</div>
+                        <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;">Capability Index</div>
+                        <div style="font-size:1.05rem;font-weight:700;color:#4ade80;font-family:'Syne',sans-serif;white-space:nowrap;">2.6 – 3.5</div>
                         <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">Advanced</div>
                     </div>
-                    <div style="padding:1rem 1.25rem;">
-                        <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;">Skill index</div>
-                        <div style="font-size:1.05rem;font-weight:700;color:#f5a623;font-family:'Syne',sans-serif;white-space:nowrap;">Level 4-5</div>
+                    <div style="padding:1rem 1.25rem;border-right:1px solid var(--border);">
+                        <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;">Capability Index</div>
+                        <div style="font-size:1.05rem;font-weight:700;color:#f5a623;font-family:'Syne',sans-serif;white-space:nowrap;">3.6 – 4.4</div>
                         <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">Expert</div>
+                    </div>
+                    <div style="padding:1rem 1.25rem;">
+                        <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;">Capability Index</div>
+                        <div style="font-size:1.05rem;font-weight:700;color:#f43f5e;font-family:'Syne',sans-serif;white-space:nowrap;">4.5 – 5.0</div>
+                        <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;">Expert+</div>
                     </div>
                 </div>
                 <table class="skill-reference-table" style="width:100%;border-collapse:collapse;font-size:.78rem;">
@@ -604,11 +625,21 @@
                     <ul class="formula-list" style="margin:.35rem 0 0;padding-left:1rem;color:var(--muted);font-size:.72rem;line-height:1.55;">
                         <li><strong style="color:var(--text);">Operation parts</strong> = laser parts + ironing parts + trim parts.</li>
                         <li><strong style="color:var(--text);">Actual minutes</strong> = complete date - start date.</li>
-                        <li><strong style="color:var(--text);">SAM</strong> = actual minutes / operation parts.</li>
+                        <li><strong style="color:var(--text);">SAM / Part</strong> = actual minutes / operation parts.</li>
+                        <li><strong style="color:var(--text);">Capability Index</strong> = all completed rows weighted by each level's rarity across visible PICs; minimum 10 rows.</li>
+                        <li><strong style="color:var(--text);">Work Mix Index</strong> = total level points / all completed rows.</li>
                         <li><strong style="color:var(--text);">Qualified level</strong> = highest level where PIC has at least 3 completed rows.</li>
-                        <li><strong style="color:var(--text);">Skill percent</strong> = qualified level / 5.</li>
+                        <li><strong style="color:var(--text);">Qualified-level SAM</strong> = average SAM / Part using only rows at the PIC's qualified level.</li>
+                        <li><strong style="color:var(--text);">Level ring</strong> = qualified level out of 5.</li>
+                        <li>Overall SAM is an efficiency reference only; it does not decide the highest-qualified PIC because job complexity differs.</li>
                         <li>Laser parts include laser cut and perforated parts. Trim parts means trim after bonding OT/BT.</li>
                     </ul>
+                </div>
+                <div style="padding:1rem 1.5rem;border-top:1px solid var(--border);background:rgba(255,255,255,.02);">
+                    <details id="laserQualificationAudit" style="font-size:.72rem;color:var(--text);line-height:1.55;">
+                        <summary style="cursor:pointer;color:#4ade80;font-weight:700;">Show live qualification audit</summary>
+                        <div style="margin-top:.55rem;color:var(--muted);">Loading live evidence...</div>
+                    </details>
                 </div>
             </div>
         </section>
@@ -627,14 +658,14 @@
                         <tr>
                             <th class="p-3">Style</th>
                             <th class="p-3">PIC</th>
+                            <th class="p-3">Proto Stage</th>
                             <th class="p-3">Qty</th>
                             <th class="p-3">Laser</th>
                             <th class="p-3">Iron</th>
                             <th class="p-3">Trim</th>
-                            <th class="p-3">Parts</th>
-                            <th class="p-3">Elapsed</th>
-                            <th class="p-3">Time Source</th>
-                            <th class="p-3">SAM</th>
+                            <th class="p-3">Total Parts</th>
+                            <th class="p-3">Elapsed Time</th>
+                            <th class="p-3">SAM / Part</th>
                             <th class="p-3">Suggested Level</th>
                             <th class="p-3">Reason</th>
                         </tr>
@@ -758,6 +789,27 @@
             return String(getVal(row, ['__PowerAppsId__', 'ID', 'Id', 'id', 'No', 'Row ID', 'Request ID', 'RequestID']) || '').trim();
         }
 
+        const LASER_START_DATE_KEYS = [
+            'Start Date\nm/d/yyyy', 'Start Date m/d/yyyy',
+            'Start Date', 'StartDate', 'Start time', 'Start Time', 'StartTime'
+        ];
+        const LASER_COMPLETE_DATE_KEYS = [
+            'Complete Date\nm/d/yyyy', 'Complete Date m/d/yyyy',
+            'Complete Date', 'CompleteDate', 'Finish'
+        ];
+
+        function isNoActionValue(value) {
+            return String(value ?? '').trim() === '-';
+        }
+
+        function getLaserStartDateRaw(row) {
+            return getVal(row, LASER_START_DATE_KEYS);
+        }
+
+        function getLaserCompleteDateRaw(row) {
+            return getVal(row, LASER_COMPLETE_DATE_KEYS);
+        }
+
         function splitRowSourceTable(row) {
             return normalizeSourceTable(row?.sourceTable || row?.source || row?.process || '');
         }
@@ -771,6 +823,38 @@
             if (hours > 0) return hours * 60;
             const minutes = toNumber(row?.netMinutes ?? row?.minutes ?? row?.actualMinutes);
             return minutes > 0 ? minutes : 0;
+        }
+
+        function storedElapsedMinutes(row) {
+            const minuteValue = toNumber(getVal(row, [
+                'Job Elapsed Calendar Minutes', 'Elapsed Minutes', 'ElapsedMinutes',
+                'Actual Minutes', 'ActualMinutes', 'Minutes'
+            ]));
+            if (minuteValue > 0) return { minutes: minuteValue, source: 'Stored elapsed minutes' };
+
+            const hourValue = toNumber(getVal(row, [
+                'Job Elapsed Calendar Hrs', 'Job Elapsed Calendar Hours',
+                'ElapsedHrs', 'Elapsed Hours', 'ElapsedHours', 'Actual Hours', 'ActualHours'
+            ]));
+            if (hourValue > 0) return { minutes: hourValue * 60, source: 'Stored elapsed hours' };
+
+            return { minutes: 0, source: '' };
+        }
+
+        function laserElapsedInfo(row, id, start, complete) {
+            const split = id ? finalSplitIndex.get(`Laser|${id}`) : null;
+            if (split?.minutes > 0) {
+                return {
+                    minutes: split.minutes,
+                    source: `Final JSON (${split.rows} split${split.rows === 1 ? '' : 's'})`
+                };
+            }
+
+            if (start && complete && complete > start) {
+                return { minutes: (complete - start) / 60000, source: 'Start/complete date' };
+            }
+
+            return { minutes: 0, source: 'Missing elapsed evidence' };
         }
 
         function buildFinalSplitIndex(rows) {
@@ -879,17 +963,18 @@
 
         function analyzeRows(rows) {
             return rows.map(row => {
-                const start = rawToLocalDate(getVal(row, ['Start Date m/d/yyyy','Start Date','StartDate','Start time','Start Time']));
-                const complete = rawToLocalDate(getVal(row, ['Complete Date','CompleteDate','Complete Date m/d/yyyy']));
+                const startRaw = getLaserStartDateRaw(row);
+                const completeRaw = getLaserCompleteDateRaw(row);
+                const start = isNoActionValue(startRaw) ? null : rawToLocalDate(startRaw);
+                const complete = isNoActionValue(completeRaw) ? null : rawToLocalDate(completeRaw);
                 const laser = toNumber(getVal(row, ['Laser Part Count','LaserPartCount','Laser Parts']));
                 const iron = toNumber(getVal(row, ['Ironing Part Count','IroningPartCount','Iron Parts']));
                 const trim = toNumber(getVal(row, ['Laser Trim Part Count','LaserTrimPartCount','Trim Parts']));
                 const parts = laser + iron + trim;
-                const rawMinutes = start && complete && complete > start ? (complete - start) / 60000 : 0;
                 const qty = toNumber(getVal(row, ['Garment Quantity','GarmentQty','Garment Qty'])) || 1;
                 const id = getLaserRowId(row);
-                const split = id ? finalSplitIndex.get(`Laser|${id}`) : null;
-                const minutes = split?.minutes || rawMinutes;
+                const elapsed = laserElapsedInfo(row, id, start, complete);
+                const minutes = elapsed.minutes;
                 const base = {
                     id,
                     style: getVal(row, ['Style Number','StyleNumber','Style']),
@@ -903,7 +988,7 @@
                     minutes,
                     start,
                     complete,
-                    timeSource: split ? `Final JSON (${split.rows} split${split.rows === 1 ? '' : 's'})` : 'Start/complete date',
+                    timeSource: elapsed.source,
                     required: rawToLocalDate(getVal(row, ['Required Date','RequiredDate','Required Date m/d/yyyy'])),
                     remark: getVal(row, ['Remark','Remarks'])
                 };
@@ -967,6 +1052,36 @@
         }
 
         const levelColors = { 1:'#64748b', 2:'#22d3ee', 3:'#4ade80', 4:'#f59e0b', 5:'#f43f5e' };
+        const MIN_CAPABILITY_ROWS = 10;
+
+        function calcWorkMix(stat) {
+            let points = 0;
+            [1,2,3,4,5].forEach(level => {
+                points += stat.levels[level].length * level;
+            });
+            return stat.jobs ? points / stat.jobs : 0;
+        }
+
+        function calcCapability(stat, matrix) {
+            if (stat.jobs < MIN_CAPABILITY_ROWS) return { avg: null, eligible: false };
+            const teamCounts = {1:0, 2:0, 3:0, 4:0, 5:0};
+            matrix.forEach(row => {
+                [1,2,3,4,5].forEach(level => {
+                    teamCounts[level] += row.levels[level].length;
+                });
+            });
+            const teamTotal = Object.values(teamCounts).reduce((sum, count) => sum + count, 0);
+            let weightedLevels = 0, weightedEvidence = 0;
+            [1,2,3,4,5].forEach(level => {
+                const teamRatio = teamTotal ? teamCounts[level] / teamTotal : 0;
+                if (!teamRatio) return;
+                const weight = 1 / teamRatio;
+                const jobs = stat.levels[level].length;
+                weightedLevels += jobs * weight * level;
+                weightedEvidence += jobs * weight;
+            });
+            return { avg: weightedEvidence ? weightedLevels / weightedEvidence : null, eligible: weightedEvidence > 0 };
+        }
 
         function getAvatarColor(pic) {
             const colors = ['#4f8fff','#7c3aed','#10b981','#f59e0b','#f43f5e','#22d3ee','#6366f1'];
@@ -974,14 +1089,15 @@
             return colors[name.charCodeAt(0) % colors.length];
         }
 
-        function getTierForLevel(level) {
-            if (level >= 4) return { label: 'Expert', cls: 'tier-expert', color: levelColors[4] };
-            if (level >= 3) return { label: 'Advanced', cls: 'tier-advanced', color: levelColors[3] };
-            if (level >= 2) return { label: 'Intermediate', cls: 'tier-mid', color: levelColors[2] };
+        function getTierForIndex(avg) {
+            if (avg >= 4.5) return { label: 'Expert+', cls: 'tier-master', color: levelColors[5] };
+            if (avg >= 3.6) return { label: 'Expert', cls: 'tier-expert', color: levelColors[4] };
+            if (avg >= 2.6) return { label: 'Advanced', cls: 'tier-advanced', color: levelColors[3] };
+            if (avg >= 2.0) return { label: 'Intermediate', cls: 'tier-mid', color: levelColors[2] };
             return { label: 'Junior / Basic', cls: 'tier-junior', color: levelColors[1] };
         }
 
-        function buildRing(pct, color) {
+        function buildRing(pct, color, valueLabel, subLabel) {
             const r = 25;
             const circ = 2 * Math.PI * r;
             const safePct = Math.max(0, Math.min(pct, 1));
@@ -992,8 +1108,8 @@
                     <circle class="ring-fg" cx="32" cy="32" r="${r}" stroke="${color}" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle>
                 </svg>
                 <div class="ring-label">
-                    <span class="rl-val" style="color:${color}">${Math.round(safePct * 100)}%</span>
-                    <span class="rl-sub">skill</span>
+                    <span class="rl-val" style="color:${color}">${valueLabel}</span>
+                    <span class="rl-sub">${subLabel}</span>
                 </div>
             </div>`;
         }
@@ -1017,8 +1133,6 @@
         function render() {
             const rows = filteredRows();
             updatePrintMeta();
-            const avgSam = rows.length ? rows.reduce((sum, row) => sum + row.sam, 0) / rows.length : 0;
-            const avgMinutes = rows.length ? rows.reduce((sum, row) => sum + row.minutes, 0) / rows.length : 0;
             const picStats = {};
             rows.forEach(row => {
                 if (!picStats[row.pic]) picStats[row.pic] = { pic: row.pic, jobs: 0, minutes: 0, sam: 0, levels: {1: [], 2: [], 3: [], 4: [], 5: []} };
@@ -1027,24 +1141,78 @@
                 picStats[row.pic].sam += row.sam;
                 picStats[row.pic].levels[row.level].push(row.sam);
             });
-            const matrix = Object.values(picStats).map(stat => {
+            let matrix = Object.values(picStats).map(stat => {
                 const levelAvg = {};
                 [1,2,3,4,5].forEach(level => {
                     const values = stat.levels[level];
                     levelAvg[level] = values.length ? values.reduce((a,b)=>a+b,0) / values.length : 0;
                 });
                 const qualifiedLevel = [5,4,3,2,1].find(level => stat.levels[level].length >= 3) || 0;
-                return { ...stat, avgSam: stat.sam / stat.jobs, levelAvg, qualifiedLevel };
-            }).filter(row => row.qualifiedLevel > 0).sort((a,b) => a.avgSam - b.avgSam);
+                const qualifiedSam = qualifiedLevel ? levelAvg[qualifiedLevel] : 0;
+                return { ...stat, avgSam: stat.sam / stat.jobs, levelAvg, qualifiedLevel, qualifiedSam };
+            });
+            matrix = matrix.map(row => ({
+                ...row,
+                workMix: calcWorkMix(row),
+                capability: calcCapability(row, matrix)
+            })).sort((a,b) =>
+                Number(b.capability.eligible) - Number(a.capability.eligible) ||
+                (b.capability.avg || 0) - (a.capability.avg || 0) ||
+                b.qualifiedLevel - a.qualifiedLevel ||
+                b.jobs - a.jobs
+            );
             const splitMatched = rows.filter(row => row.timeSource.startsWith('Final JSON')).length;
+            const highestCapability = matrix.find(row => row.capability.eligible);
+            const teamWorkMix = rows.length ? rows.reduce((sum, row) => sum + row.level, 0) / rows.length : 0;
+            const mostHighLevel = matrix.reduce((best, row) => {
+                const count = row.levels[4].length + row.levels[5].length;
+                return count > best.count ? { pic: row.pic, count } : best;
+            }, { pic: '—', count: 0 });
             document.getElementById('kRows').textContent = rows.length;
-            document.getElementById('kSam').textContent = `${avgSam.toFixed(1)}m`;
-            document.getElementById('kMinutes').textContent = `${avgMinutes.toFixed(1)}m`;
-            document.getElementById('kBestPic').textContent = matrix[0]?.pic || '-';
+            document.getElementById('kRowsSub').textContent = `across ${matrix.length} PICs`;
+            document.getElementById('kSam').textContent = teamWorkMix.toFixed(2);
+            document.getElementById('kMinutes').textContent = mostHighLevel.count;
+            document.getElementById('kMinutesSub').textContent = `${mostHighLevel.pic} · completed evidence`;
+            document.getElementById('kBestPic').textContent = highestCapability?.pic || '-';
+            document.getElementById('kBestPicSub').textContent = highestCapability
+                ? `${highestCapability.capability.avg.toFixed(2)} / 5 · ${highestCapability.jobs} rows`
+                : `minimum ${MIN_CAPABILITY_ROWS} completed rows`;
             document.getElementById('rowCount').textContent = `${rows.length} rows · ${splitMatched} using final JSON`;
             renderMatrix(matrix);
+            updateLaserQualificationAudit(matrix);
             renderRowTable(rows);
             renderCharts(matrix);
+        }
+
+        function updateLaserQualificationAudit(matrix) {
+            const audit = document.getElementById('laserQualificationAudit');
+            if (!audit) return;
+            const row = matrix.find(item => item.qualifiedLevel > 0);
+            if (!row) {
+                audit.innerHTML = '<summary style="cursor:pointer;color:#4ade80;font-weight:700;">Show live qualification audit</summary><div style="margin-top:.55rem;color:var(--muted);">No PIC has at least 3 completed rows at one level yet.</div>';
+                return;
+            }
+            const teamCounts = {1:0, 2:0, 3:0, 4:0, 5:0};
+            matrix.forEach(item => {
+                [1,2,3,4,5].forEach(level => {
+                    teamCounts[level] += item.levels[level].length;
+                });
+            });
+            const teamTotal = Object.values(teamCounts).reduce((sum, count) => sum + count, 0);
+            let weightedRowsTotal = 0, weightedPointsTotal = 0;
+            const evidenceRows = [1,2,3,4,5].map(level => {
+                const count = row.levels[level].length;
+                const teamCount = teamCounts[level];
+                const share = teamTotal ? teamCount / teamTotal : 0;
+                const weight = teamCount ? teamTotal / teamCount : 0;
+                const weightedRows = count * weight;
+                const weightedPoints = weightedRows * level;
+                weightedRowsTotal += weightedRows;
+                weightedPointsTotal += weightedPoints;
+                const selected = level === row.qualifiedLevel;
+                return `<tr${selected ? ' style="background:rgba(74,222,128,.08);"' : ''}><td style="padding:.35rem .45rem;color:${levelColors[level]};">Level ${level}</td><td style="padding:.35rem .45rem;text-align:right;">${count}</td><td style="padding:.35rem .45rem;text-align:right;">${teamCount}</td><td style="padding:.35rem .45rem;text-align:right;">${(share * 100).toFixed(2)}%</td><td style="padding:.35rem .45rem;text-align:right;">×${weight.toFixed(4)}</td><td style="padding:.35rem .45rem;text-align:right;">${weightedRows.toFixed(4)}</td><td style="padding:.35rem .45rem;text-align:right;">${weightedPoints.toFixed(4)}</td><td style="padding:.35rem .45rem;text-align:right;">${count ? `${row.levelAvg[level].toFixed(1)}m` : '—'}</td></tr>`;
+            }).join('');
+            audit.innerHTML = `<summary style="cursor:pointer;color:#4ade80;font-weight:700;">Show full ${row.pic} calculation and qualification audit</summary><div style="margin-top:.55rem;overflow-x:auto;"><table style="width:100%;min-width:720px;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:.62rem;"><thead><tr style="color:var(--muted);"><th style="padding:.35rem .45rem;text-align:left;">Level</th><th style="padding:.35rem .45rem;text-align:right;">${row.pic} rows</th><th style="padding:.35rem .45rem;text-align:right;">Team rows</th><th style="padding:.35rem .45rem;text-align:right;">Share</th><th style="padding:.35rem .45rem;text-align:right;">Weight</th><th style="padding:.35rem .45rem;text-align:right;">Weighted rows</th><th style="padding:.35rem .45rem;text-align:right;">Weighted pts</th><th style="padding:.35rem .45rem;text-align:right;">Avg SAM</th></tr></thead><tbody>${evidenceRows}</tbody><tfoot><tr style="border-top:1px solid var(--border);font-weight:700;"><td colspan="5" style="padding:.4rem .45rem;">Totals</td><td style="padding:.4rem .45rem;text-align:right;">${weightedRowsTotal.toFixed(4)}</td><td style="padding:.4rem .45rem;text-align:right;">${weightedPointsTotal.toFixed(4)}</td><td></td></tr></tfoot></table><div style="margin-top:.55rem;">Capability Index = ${weightedPointsTotal.toFixed(4)} weighted points ÷ ${weightedRowsTotal.toFixed(4)} weighted rows = <strong>${row.capability.avg === null ? '—' : `${row.capability.avg.toFixed(2)} / 5`}</strong>. Work Mix = ${row.workMix.toFixed(2)} / 5. ${row.pic} qualifies at <strong style="color:${levelColors[row.qualifiedLevel]};">Level ${row.qualifiedLevel}</strong> because ${row.levels[row.qualifiedLevel].length} Level ${row.qualifiedLevel} rows meet the minimum of 3; qualified-level SAM is ${row.qualifiedSam.toFixed(1)}m.</div></div>`;
         }
 
         function renderMatrix(matrix) {
@@ -1053,16 +1221,18 @@
                 body.innerHTML = '<div class="card p-6 text-center italic text-slate-400">No PIC has enough completed Laser rows to qualify yet.</div>';
                 return;
             }
-            const maxJobs = Math.max(...matrix.map(row => row.jobs), 1);
             body.innerHTML = matrix.map(row => {
-                const tier = getTierForLevel(row.qualifiedLevel);
+                const qualified = row.qualifiedLevel > 0;
+                const tier = row.capability.eligible
+                    ? getTierForIndex(row.capability.avg)
+                    : { label: `Needs ${MIN_CAPABILITY_ROWS} rows`, cls: 'tier-junior', color: levelColors[1] };
                 const avatar = getAvatarColor(row.pic);
                 const highLevelJobs = row.levels[4].length + row.levels[5].length;
                 const expertRate = row.jobs ? Math.round(highLevelJobs / row.jobs * 100) : 0;
+                const maxLevelCount = Math.max(...[1,2,3,4,5].map(level => row.levels[level].length), 1);
                 const levelCell = level => {
                     const count = row.levels[level].length;
-                    const avg = row.levelAvg[level];
-                    const width = Math.max(5, Math.round(count / maxJobs * 100));
+                    const width = Math.max(5, Math.round(count / maxLevelCount * 100));
                     return `<div class="level-row">
                         <div class="level-dot" style="background:${levelColors[level]}"></div>
                         <span class="level-tag">Level ${level}</span>
@@ -1075,22 +1245,22 @@
                         <div class="pic-avatar" style="background:${avatar}22;color:${avatar}">${String(row.pic || 'P').charAt(0)}</div>
                         <div class="pic-name-block">
                             <div class="pic-name">${row.pic}</div>
-                            <div class="pic-title">${row.jobs} laser jobs completed</div>
+                            <div class="pic-title">${row.jobs} laser ${row.jobs === 1 ? 'row' : 'rows'} · ${qualified ? `Qualified L${row.qualifiedLevel} · ${row.qualifiedSam.toFixed(1)}m level SAM` : 'Qualified level needs 3 rows'}</div>
                             <span class="tier-badge ${tier.cls}" style="margin-top:.4rem;display:inline-block">${tier.label}</span>
                         </div>
-                        ${buildRing(row.qualifiedLevel / 5, tier.color)}
+                        ${buildRing(row.capability.eligible ? row.capability.avg / 5 : 0, tier.color, row.capability.eligible ? row.capability.avg.toFixed(2) : '—', row.capability.eligible ? 'of 5' : `need ${MIN_CAPABILITY_ROWS}`)}
                     </div>
                     <div class="pic-card-body">
                         ${[1,2,3,4,5].map(levelCell).join('')}
                     </div>
                     <div class="pic-card-footer">
                         <div class="metric-mini">
-                            <div class="mv" style="color:${tier.color}">L${row.qualifiedLevel}</div>
-                            <div class="ml">Qualified</div>
+                            <div class="mv">${row.workMix.toFixed(2)}</div>
+                            <div class="ml">Work Mix</div>
                         </div>
                         <div class="metric-mini">
-                            <div class="mv">${row.avgSam.toFixed(1)}m</div>
-                            <div class="ml">Avg SAM</div>
+                            <div class="mv">${row.jobs}</div>
+                            <div class="ml">Evidence</div>
                         </div>
                         <div class="metric-mini">
                             <div class="mv">${highLevelJobs}</div>
@@ -1108,7 +1278,7 @@
         function renderRowTable(rows) {
             const body = document.getElementById('rowsBody');
             if (!rows.length) {
-                body.innerHTML = '<tr><td colspan="13" class="p-6 text-center italic text-slate-400">No rows match the current view.</td></tr>';
+                body.innerHTML = '<tr><td colspan="12" class="p-6 text-center italic text-slate-400">No rows match the current view.</td></tr>';
                 return;
             }
             body.innerHTML = rows
@@ -1125,7 +1295,6 @@
                     <td class="p-3 text-amber-700 font-bold">${row.trim}</td>
                     <td class="p-3 font-black">${row.parts}</td>
                     <td class="p-3">${row.minutes.toFixed(1)}m</td>
-                    <td class="p-3 font-bold ${row.timeSource.startsWith('Final JSON') ? 'text-emerald-700' : 'text-slate-500'}">${row.timeSource}</td>
                     <td class="p-3 font-black text-blue-700">${row.sam.toFixed(1)}m</td>
                     <td class="p-3"><span class="level-pill ${levelClass(row.level)}">Level ${row.level}</span></td>
                     <td class="p-3 text-slate-500">${row.reason}</td>
@@ -1145,36 +1314,58 @@
                     data: {
                         labels,
                         datasets: [{
-                            label: 'Avg SAM',
-                            data: matrix.map(row => Number(row.avgSam.toFixed(2))),
+                            label: 'Capability Index',
+                            data: matrix.map(row => row.capability.eligible ? Number(row.capability.avg.toFixed(2)) : null),
                             backgroundColor: colors.map(color => color + '33'),
                             borderColor: colors,
                             borderWidth: 2,
                             borderRadius: 6
                         }]
                     },
-                    options: chartOptions('Avg SAM minutes')
+                    options: {
+                        ...chartOptions('Capability Index'),
+                        plugins: {
+                            ...chartOptions('Capability Index').plugins,
+                            legend: { display: false }
+                        },
+                        scales: {
+                            ...chartOptions('Capability Index').scales,
+                            y: { ...chartOptions('Capability Index').scales.y, min: 0, max: 5, ticks: { ...chartOptions('Capability Index').scales.y.ticks, stepSize: 1 } }
+                        }
+                    }
                 });
             }
             const levelCanvas = document.getElementById('chartLaserLevels');
             if (levelCanvas) {
+                const distribution = [1,2,3,4,5].map(level =>
+                    matrix.reduce((sum, row) => sum + row.levels[level].length, 0)
+                );
                 chartRefs.levels = new Chart(levelCanvas, {
-                    type: 'bar',
+                    type: 'doughnut',
                     data: {
-                        labels,
-                        datasets: [1,2,3,4,5].map(level => ({
-                            label: `Level ${level}`,
-                            data: matrix.map(row => row.levels[level].length),
-                            backgroundColor: levelColors[level] + '99',
-                            borderColor: levelColors[level],
-                            borderWidth: 1
-                        }))
+                        labels: ['Level 1','Level 2','Level 3','Level 4','Level 5'],
+                        datasets: [{
+                            data: distribution,
+                            backgroundColor: Object.values(levelColors),
+                            borderWidth: 3,
+                            borderColor: 'rgba(7,10,16,0.82)'
+                        }]
                     },
                     options: {
-                        ...chartOptions('Rows'),
-                        scales: {
-                            x: { stacked: true, ticks: { color: '#c6d0e5', font: { family: 'DM Mono', size: 11 } }, grid: { color: 'rgba(148,163,184,0.06)' } },
-                            y: { stacked: true, beginAtZero: true, ticks: { color: '#c6d0e5', font: { family: 'DM Mono', size: 11 } }, grid: { color: 'rgba(148,163,184,0.08)' } }
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: '#c6d0e5', font: { family: 'DM Mono', size: 11 }, boxWidth: 12 } },
+                            tooltip: {
+                                ...chartOptions('Rows').plugins.tooltip,
+                                callbacks: {
+                                    label: context => {
+                                        const total = distribution.reduce((sum, count) => sum + count, 0);
+                                        const value = context.parsed;
+                                        return ` ${context.label}: ${value} rows (${total ? (value / total * 100).toFixed(1) : '0.0'}%)`;
+                                    }
+                                }
+                            }
                         }
                     }
                 });
@@ -1209,7 +1400,7 @@
             document.getElementById('kSync').textContent = analyzedRows.length ? '⚠ Cached data (live fetch failed)' : '● Load failed';
             document.getElementById('rowsBody').innerHTML = analyzedRows.length
                 ? document.getElementById('rowsBody').innerHTML
-                : `<tr><td colspan="13" class="p-6 text-center text-red-500 font-bold">Unable to load Laser data: ${error.message}</td></tr>`;
+                : `<tr><td colspan="12" class="p-6 text-center text-red-500 font-bold">Unable to load Laser data: ${error.message}</td></tr>`;
         });
     </script>
 </body>
