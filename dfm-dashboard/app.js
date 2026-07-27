@@ -121,8 +121,12 @@
     return (window.sessionStorage.getItem(SHARED_SESSION_KEY) || "").trim();
   }
 
-  function canEditDfmSummary() {
+  function canEditDfmData() {
     return page === "data" && DFM_LOGIN_USERS.includes(getSharedSessionUser());
+  }
+
+  function canEditDfmSummary() {
+    return canEditDfmData();
   }
 
   function loadRecords() {
@@ -453,16 +457,7 @@
   }
 
   function isBlankRecord(record) {
-    return ![
-      record.season,
-      record.category,
-      record.style,
-      record.constructionCode,
-      record.typeCode,
-      record.modification,
-      record.remark,
-      record.fgQty,
-    ].some((value) => String(value ?? "").trim() !== "");
+    return !cleanText(record.constructionCode);
   }
 
   function cleanText(value) {
@@ -1490,20 +1485,24 @@
       .filter(Boolean)
       .sort(compareSeasons);
 
-    const mTypeCodes = new Set();
-    const nonMTypeCodes = new Set();
-    const otherTypeCodes = new Set();
+    const modificationCounts = {
+      modified: 0,
+      nonModified: 0,
+      unspecified: 0,
+    };
     records.forEach((record) => {
-      const typeKey = cleanText(record.typeCode) || "Unknown";
       if (record.modification === "M") {
-        mTypeCodes.add(typeKey);
+        modificationCounts.modified += 1;
       } else if (record.modification === "Non-M") {
-        nonMTypeCodes.add(typeKey);
+        modificationCounts.nonModified += 1;
       } else {
-        otherTypeCodes.add(typeKey);
+        modificationCounts.unspecified += 1;
       }
     });
-    const totalModTypes = mTypeCodes.size + nonMTypeCodes.size + otherTypeCodes.size;
+    const totalModificationRows =
+      modificationCounts.modified +
+      modificationCounts.nonModified +
+      modificationCounts.unspecified;
 
     const includeInactiveInvestmentRows = page === "data";
     const rankedSummaryRows = Object.entries(state.investmentNotes)
@@ -1636,21 +1635,21 @@
       modSummary: [
         {
           label: "Modified",
-          value: mTypeCodes.size,
-          share: totalModTypes ? mTypeCodes.size / totalModTypes : 0,
-          note: "Unique type codes marked M",
+          value: modificationCounts.modified,
+          share: totalModificationRows ? modificationCounts.modified / totalModificationRows : 0,
+          note: "Construction rows marked M",
         },
         {
           label: "Non-Modified",
-          value: nonMTypeCodes.size,
-          share: totalModTypes ? nonMTypeCodes.size / totalModTypes : 0,
-          note: "Unique type codes marked Non-M",
+          value: modificationCounts.nonModified,
+          share: totalModificationRows ? modificationCounts.nonModified / totalModificationRows : 0,
+          note: "Construction rows marked Non-M",
         },
         {
           label: "Unspecified",
-          value: otherTypeCodes.size,
-          share: totalModTypes ? otherTypeCodes.size / totalModTypes : 0,
-          note: "Type codes without modification value",
+          value: modificationCounts.unspecified,
+          share: totalModificationRows ? modificationCounts.unspecified / totalModificationRows : 0,
+          note: "Construction rows without modification value",
         },
       ].filter((item) => item.value > 0),
       codeDirectory: Array.from(codeMap.entries())
@@ -1736,9 +1735,16 @@
     }
 
     if (page === "data") {
+      const canEdit = canEditDfmData();
+      if (elements.addRecordBtn) {
+        elements.addRecordBtn.hidden = !canEdit;
+      }
+      if (elements.resetDataBtn) {
+        elements.resetDataBtn.hidden = !canEdit;
+      }
       renderInvestmentControls();
-      renderInvestmentBoard(analytics.investmentBoard, analytics.investmentSeasonLabels, canEditDfmSummary());
-      renderRecordCards(filteredRecords);
+      renderInvestmentBoard(analytics.investmentBoard, analytics.investmentSeasonLabels, canEdit);
+      renderRecordCards(filteredRecords, canEdit);
       if (elements.filteredSummary) {
         elements.filteredSummary.textContent = `${labelCount(filteredRecords.length, "construction row", "construction rows")} shown`;
       }
@@ -2262,7 +2268,7 @@
       .join("");
   }
 
-  function renderRecordCards(records) {
+  function renderRecordCards(records, canEdit = false) {
     if (!elements.recordCards) {
       return;
     }
@@ -2289,10 +2295,13 @@
             <div class="record-meta">Type Code: <strong>${escapeHtml(record.typeCode || "-")}</strong></div>
             <div class="record-meta">FG Qty: <strong>${escapeHtml(record.fgQty === null || record.fgQty === undefined ? "Pending update" : formatNumber(record.fgQty))}</strong></div>
             <div class="record-meta">${escapeHtml(record.remark || "No remark")}</div>
-            <div class="row-actions">
-              <button class="row-btn" data-action="edit" data-id="${escapeHtml(record.id)}">Edit</button>
-              <button class="row-btn row-btn--danger" data-action="delete" data-id="${escapeHtml(record.id)}">Delete</button>
-            </div>
+            ${
+              canEdit
+                ? `<div class="row-actions">
+                    <button class="row-btn" data-action="edit" data-id="${escapeHtml(record.id)}">Edit</button>
+                  </div>`
+                : ""
+            }
           </article>
         `,
       )
@@ -2455,6 +2464,9 @@
 
   function openDialog(recordId) {
     if (!elements.dialog || !elements.form || !elements.dialogTitle) {
+      return;
+    }
+    if (!canEditDfmData()) {
       return;
     }
     state.editingId = recordId || null;
@@ -2986,6 +2998,9 @@
       return;
     }
     event.preventDefault();
+    if (!canEditDfmData()) {
+      return;
+    }
     if (state.isSaving) {
       return;
     }
@@ -3055,6 +3070,9 @@
   }
 
   async function deleteRecord(recordId) {
+    if (!canEditDfmData()) {
+      return;
+    }
     const record = state.records.find((item) => item.id === recordId);
     if (!record) {
       return;
@@ -3085,6 +3103,9 @@
   }
 
   function resetData() {
+    if (!canEditDfmData()) {
+      return;
+    }
     const confirmed = window.confirm("Reset all edits and reload the original workbook seed data?");
     if (!confirmed) {
       return;
@@ -3291,12 +3312,20 @@
       });
     }
 
+    const refreshSharedSession = () => {
+      if (page !== "data" && page !== "dashboard") {
+        return;
+      }
+      state.investmentEditingCode = null;
+      render();
+    };
+
     window.addEventListener("storage", (event) => {
-      if (event.key === SHARED_SESSION_KEY && (page === "data" || page === "dashboard")) {
-        state.investmentEditingCode = null;
-        render();
+      if (event.key === SHARED_SESSION_KEY) {
+        refreshSharedSession();
       }
     });
+    window.addEventListener("ma-admin-session-changed", refreshSharedSession);
 
     if (elements.investmentControls) {
       elements.investmentControls.addEventListener("click", (event) => {

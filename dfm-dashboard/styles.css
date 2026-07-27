@@ -1689,6 +1689,37 @@ textarea {
   }
 }
 
+@media (min-width: 721px) and (max-width: 1180px) {
+  body[data-page="data"] .topbar {
+    align-items: start;
+    flex-wrap: wrap;
+  }
+
+  body[data-page="data"] .nav-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  body[data-page="data"] .nav-tab {
+    padding-inline: 0.65rem;
+    text-align: center;
+  }
+
+  body[data-page="data"] .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-page="data"] .filters label:first-child,
+  body[data-page="data"] .filters .checkbox {
+    grid-column: 1 / -1;
+  }
+
+  body[data-page="data"] .record-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
   html {
     font-size: 14px;
@@ -1891,6 +1922,38 @@ textarea {
 
   .investment-table {
     min-width: 1040px;
+  }
+
+  body[data-page="data"] .nav-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-page="data"] .dfm-session-row,
+  body[data-page="data"] .dfm-session-actions,
+  body[data-page="data"] .dfm-session-status {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  body[data-page="data"] .dfm-session-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body[data-page="data"] .dfm-session-select {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 2.9rem;
+  }
+
+  body[data-page="data"] .dfm-session-actions .primary-btn,
+  body[data-page="data"] .dfm-session-actions .ghost-btn {
+    width: 100%;
+  }
+
+  body[data-page="data"] .dfm-active-user {
+    width: 100%;
+    text-align: center;
   }
 }
 
