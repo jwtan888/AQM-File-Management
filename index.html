@@ -4234,7 +4234,8 @@ async function addLaserRow() {
             btn.innerText = 'Saving...'; btn.disabled = true;
             try {
                 const res = await postPortalJson(laserAddURL, payload);
-                await readPortalWriteResult(res, 'Laser add');
+                const writeResult = await readPortalWriteResult(res, 'Laser add');
+                const addedId = getPortalWriteRowId(writeResult.parsedBody);
                 btn.innerText = 'ADDED!';
                 clearPortalTabDirty('laser');
                 ['l_receivedTime','l_season','l_styleNumber','l_category','l_protoStage',
@@ -4244,7 +4245,7 @@ async function addLaserRow() {
                 });
                 document.getElementById('l_section').value = '';
                 if (hasLaserConsumptionDate(payload.completeDate) && consumptionCompleteStatus === 'Yes') {
-                    void syncNewLaserCompletionAfterAdd(payload, existingLaserIds);
+                    void syncNewLaserCompletionAfterAdd(payload, existingLaserIds, addedId);
                 } else {
                     refreshLaserData();
                 }
@@ -4489,7 +4490,15 @@ async function addLaserRow() {
             }
         }
 
-        async function syncNewLaserCompletionAfterAdd(payload, existingLaserIds) {
+        function getPortalWriteRowId(body) {
+            const candidates = [
+                body?.recordID, body?.recordId, body?.Id, body?.ID, body?.id,
+                body?.body?.recordID, body?.body?.recordId, body?.body?.Id, body?.body?.ID, body?.body?.id
+            ];
+            return candidates.map(laserConsumptionValue).find(Boolean) || '';
+        }
+
+        async function syncNewLaserCompletionAfterAdd(payload, existingLaserIds, addedId = '') {
             const expectedKey = [
                 payload.styleNumber,
                 payload.season,
@@ -4497,10 +4506,33 @@ async function addLaserRow() {
                 payload.category,
                 payload.garmentQty
             ].map(laserConsumptionValue).map(value => value.toLowerCase()).join('|');
+            if (addedId) {
+                const localRow = buildLaserLocalPatchFromPayload({ ...payload, recordID: addedId });
+                delete localRow.__matchKeys;
+                allLaserRows.unshift(localRow);
+                const immediate = await syncLaserCompletionToConsumption(addedId, {
+                    refreshConsumption: !consumptionDataLoaded
+                });
+                if (immediate !== 'failed') return immediate;
+            }
+
             const retryDelays = [0, 2500, 5000, 10000];
             for (const waitMs of retryDelays) {
                 if (waitMs) await delay(waitMs);
-                await refreshLaserData(true);
+                try {
+                    const response = await postPortalJson(laserFetchURL, {}, 6000);
+                    if (!response.ok) continue;
+                    const rows = extractRows(await response.json());
+                    rows.sort((a, b) => Number(getPortalRowId(b)) - Number(getPortalRowId(a)));
+                    allLaserRows = mergePortalPendingUpdates('laser', rows);
+                    saveLaserRowsCache(allLaserRows);
+                    safeWriteDashboardSnapshot();
+                    if (canPortalAutoRender('laser')) renderLaserTable();
+                    renderLaserDashboard();
+                } catch (error) {
+                    console.warn('New Laser auto-link lookup retry failed:', error.message);
+                    continue;
+                }
                 const newRow = allLaserRows
                     .filter(row => {
                         const id = getPortalRowId(row);
@@ -4511,7 +4543,9 @@ async function addLaserRow() {
                     })
                     .sort((a, b) => Number(getPortalRowId(b)) - Number(getPortalRowId(a)))[0];
                 if (!newRow) continue;
-                const result = await syncLaserCompletionToConsumption(getPortalRowId(newRow));
+                const result = await syncLaserCompletionToConsumption(getPortalRowId(newRow), {
+                    refreshConsumption: !consumptionDataLoaded
+                });
                 if (result !== 'failed') return result;
             }
             console.warn('New completed Laser row was saved but was not available for Consumption auto-link within the retry window.');
@@ -4521,7 +4555,6 @@ async function addLaserRow() {
         async function deleteAutoLaserConsumptionRowsForGroup(row) {
             if (!row || !hasLaserConsumptionGroup(row)) return 0;
             const groupKey = laserConsumptionGroupKey(row);
-            await refreshConsumptionData(true);
             const completedGroupRows = allLaserRows.filter(candidate =>
                 hasLaserConsumptionGroup(candidate)
                 && laserConsumptionGroupKey(candidate) === groupKey
@@ -4538,8 +4571,22 @@ async function addLaserRow() {
                 if (!id) continue;
                 const response = await postPortalJson(consumptionDeleteURL, { id: String(id) });
                 await readPortalWriteResult(response, 'Laser consumption task delete');
+                pendingDeletedConsumptionIds.add(String(id));
             }
-            if (targets.length) schedulePortalWriteRefresh(refreshConsumptionData);
+            if (targets.length) {
+                allConsumptionRows = allConsumptionRows.filter(consumptionRow =>
+                    !pendingDeletedConsumptionIds.has(String(getPortalRowId(consumptionRow)))
+                );
+                safeWriteDashboardSnapshot();
+                renderConsumptionTable();
+                renderConsumptionDashboard();
+                renderLaserDashboard();
+                setTimeout(() => refreshConsumptionData(true), 35000);
+                setTimeout(() => {
+                    targets.forEach(target => pendingDeletedConsumptionIds.delete(String(getPortalRowId(target))));
+                    refreshConsumptionData(true);
+                }, 90000);
+            }
             return targets.length;
         }
 
@@ -4611,8 +4658,15 @@ async function addLaserRow() {
                 applyLaserSavePatch(rid, payload, { renderTable: false });
                 if (hasLaserConsumptionDate(completeNorm)) {
                     if (consumptionCompleteStatus === 'No') {
-                        void deleteAutoLaserConsumptionRowsForGroup(allLaserRows.find(item => String(getPortalRowId(item)) === String(rid)))
-                            .catch(error => console.error('Laser consumption task delete failed:', error));
+                        try {
+                            btn.innerText = 'DELETING...';
+                            await deleteAutoLaserConsumptionRowsForGroup(
+                                allLaserRows.find(item => String(getPortalRowId(item)) === String(rid))
+                            );
+                        } catch (error) {
+                            console.error('Laser consumption task delete failed:', error);
+                            alert(`Requirement status was saved as No, but the linked Consumption request could not be deleted.\n${error.message}`);
+                        }
                     } else {
                         void syncLaserCompletionToConsumption(rid);
                     }
@@ -10355,6 +10409,7 @@ function renderPendingTaskHub() {
         // CONSUMPTION PAGE
         // ══════════════════════════════════════════════════════════════
         let allConsumptionRows = [], consumptionSearchQuery = '', consumptionMonthQuery = '';
+        const pendingDeletedConsumptionIds = new Set();
         let consumptionPendingOnly = false;
 
         function updateConsumptionPicDisplay() {
@@ -10694,7 +10749,9 @@ function renderPendingTaskHub() {
             try {
                 const r_c = await postPortalJson(consumptionFetchURL, {}, 40000);
                 if (!r_c.ok) throw new Error(`HTTP ${r_c.status}`);
-                const rows = extractRows(await r_c.json());
+                const rows = extractRows(await r_c.json()).filter(row =>
+                    !pendingDeletedConsumptionIds.has(String(getPortalRowId(row)))
+                );
                 rows.sort((a,b) => (parseInt(getVal(b,['Id','ID','id']))||0) - (parseInt(getVal(a,['Id','ID','id']))||0));
                 allConsumptionRows = rows;
                 consumptionDataLoaded = true;
