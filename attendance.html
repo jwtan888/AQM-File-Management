@@ -296,7 +296,19 @@
         })();
 
         const ATT_MEMBERS = ['Phone', 'James', 'Ram', 'Keat', 'Viki', 'Mark', 'Joe', 'Gavin'];
+        const PIC_EFFECTIVE_END_DATES = Object.freeze({ Ram: '2026-06-30' });
         const ATT_EDITORS = ['Gavin', 'Joe'];
+
+        function isPICActiveForMonth(pic, year, monthIndex) {
+            const endDate = PIC_EFFECTIVE_END_DATES[pic];
+            if (!endDate) return true;
+            const [endYear, endMonth] = endDate.split('-').map(Number);
+            return year < endYear || (year === endYear && monthIndex < endMonth);
+        }
+
+        function attendanceMembersForMonth(year, monthIndex) {
+            return ATT_MEMBERS.filter(pic => isPICActiveForMonth(pic, year, monthIndex));
+        }
         const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const SESSION_KEY = 'ma_admin_session_user';
         const ATT_STORAGE_KEY = 'ma_attendance';
@@ -854,7 +866,7 @@
             document.getElementById('att-thead').innerHTML = head;
 
             let body = '';
-            ATT_MEMBERS.forEach(name => {
+            attendanceMembersForMonth(attYear, attMonth).forEach(name => {
                 const member = data[name] || {};
                 let total = 0;
                 let cells = '';
@@ -908,7 +920,7 @@
             const key = attKey();
             const daysInMonth = new Date(attYear, attMonth + 1, 0).getDate();
             const monthData = attData[key] || {};
-            const totals = ATT_MEMBERS.map(name => {
+            const totals = attendanceMembersForMonth(attYear, attMonth).map(name => {
                 const member = monthData[name] || {};
                 let total = 0;
                 if (member.__total__ !== undefined) {
@@ -957,7 +969,7 @@
             }
             const key = attKey();
             if (!attData[key]) attData[key] = {};
-            ATT_MEMBERS.forEach(name => {
+            attendanceMembersForMonth(attYear, attMonth).forEach(name => {
                 if (!attData[key][name]) attData[key][name] = {};
                 attData[key][name][attSelectedCol] = hours;
             });
@@ -977,7 +989,7 @@
             const monthLabel = `${String(attYear).slice(2)}-${SHORT_MONTHS[attMonth]}`;
             const rows = [];
 
-            ATT_MEMBERS.forEach(name => {
+            attendanceMembersForMonth(attYear, attMonth).forEach(name => {
                 if (!attData[key][name]) attData[key][name] = {};
                 let total = 0;
                 const row = { month: monthLabel, name };
@@ -1034,7 +1046,8 @@
             const monthData = attData[key] || {};
             const daysInMonth = new Date(attYear, attMonth + 1, 0).getDate();
 
-            ATT_MEMBERS.filter(name => name !== 'Gavin').forEach(name => {
+            const activeMembers = attendanceMembersForMonth(attYear, attMonth);
+            activeMembers.filter(name => name !== 'Gavin').forEach(name => {
                 const member = monthData[name] || {};
                 let total = 0;
                 if (member.__total__ !== undefined) {
@@ -1059,7 +1072,7 @@
                 return `${SHORT_MONTHS[date.getMonth()]}-${date.getFullYear()}` === monthLabel;
             };
 
-            const allPICs = new Set(ATT_MEMBERS.filter(pic => pic !== 'Gavin'));
+            const allPICs = new Set(activeMembers.filter(pic => pic !== 'Gavin'));
             const settingHrs = {};
             const laserHrs = {};
             const supportHrs = {};
@@ -1238,6 +1251,7 @@
                 .filter(Boolean)
                 .filter(pic => pic !== '---')
                 .filter(pic => pic !== 'Gavin')
+                .filter(pic => isPICActiveForMonth(pic, attYear, attMonth))
                 .sort((a, b) => {
                     const totalA = (settingHrs[a] || 0) + (laserHrs[a] || 0) + (supportHrs[a] || 0) + (downHrs[a] || 0) + (consumptionHrs[a] || 0) + (manualHrs[a] || 0);
                     const totalB = (settingHrs[b] || 0) + (laserHrs[b] || 0) + (supportHrs[b] || 0) + (downHrs[b] || 0) + (consumptionHrs[b] || 0) + (manualHrs[b] || 0);
