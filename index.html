@@ -4261,6 +4261,7 @@ async function addLaserRow() {
 
         // Laser completion creates at most one Consumption task per matching group.
         const laserConsumptionSyncing = new Set();
+        const laserConsumptionSuppressedGroups = new Set();
 
         function laserConsumptionValue(value) {
             const text = String(value ?? '').trim();
@@ -4383,6 +4384,7 @@ async function addLaserRow() {
 
             const group = getLaserConsumptionGroup(savedRow);
             const groupKey = laserConsumptionGroupKey(savedRow);
+            if (laserConsumptionSuppressedGroups.has(groupKey)) return 'skipped';
             if (laserConsumptionSyncing.has(groupKey)) return 'skipped';
             const groupedRows = allLaserRows
                 .filter(row =>
@@ -4404,6 +4406,7 @@ async function addLaserRow() {
 
             try {
                 if (options.refreshConsumption !== false) await refreshConsumptionData(true);
+                if (laserConsumptionSuppressedGroups.has(groupKey)) return 'skipped';
                 const matches = (allConsumptionRows || []).filter(row => consumptionMatchesLaserGroup(row, group));
                 const linkedTarget = matches.find(row =>
                     getAutoLaserConsumptionIds(row).some(id => linkedLaserIds.has(id))
@@ -4453,6 +4456,7 @@ async function addLaserRow() {
                         pic: desiredPic,
                         remark: desiredRemark
                     };
+                    if (laserConsumptionSuppressedGroups.has(groupKey)) return 'skipped';
                     const response = await postPortalJson(consumptionUpdateURL, payload);
                     await readPortalWriteResult(response, 'Laser consumption task update');
                     applyConsumptionSavePatch(id, payload);
@@ -4478,6 +4482,7 @@ async function addLaserRow() {
                         || laserConsumptionValue(getMAPic(latestRow)),
                     remark: buildLaserConsumptionAutoRemark(groupedRows)
                 };
+                if (laserConsumptionSuppressedGroups.has(groupKey)) return 'skipped';
                 const response = await postPortalJson(consumptionAddURL, payload);
                 await readPortalWriteResult(response, 'Laser consumption task create');
                 if (options.scheduleRefresh !== false) schedulePortalWriteRefresh(refreshConsumptionData);
@@ -4506,6 +4511,7 @@ async function addLaserRow() {
                 payload.category,
                 payload.garmentQty
             ].map(laserConsumptionValue).map(value => value.toLowerCase()).join('|');
+            laserConsumptionSuppressedGroups.delete(expectedKey);
             if (addedId) {
                 const localRow = buildLaserLocalPatchFromPayload({ ...payload, recordID: addedId });
                 delete localRow.__matchKeys;
@@ -4558,7 +4564,7 @@ async function addLaserRow() {
             return (!start || start === '---') && (!complete || complete === '---');
         }
 
-        async function deleteAutoLaserConsumptionRowsForGroup(row) {
+        async function deleteAutoLaserConsumptionRowsForGroup(row, options = {}) {
             if (!row || !hasLaserConsumptionGroup(row)) return 0;
             const groupKey = laserConsumptionGroupKey(row);
             const completedGroupRows = allLaserRows.filter(candidate =>
@@ -4567,7 +4573,11 @@ async function addLaserRow() {
                 && rawToLocalDate(getLaserCompleteDateRaw(candidate))
                 && getPortalRowId(candidate)
             );
-            if (completedGroupRows.some(laserRequiresConsumption)) return 0;
+            if (completedGroupRows.some(laserRequiresConsumption)) {
+                laserConsumptionSuppressedGroups.delete(groupKey);
+                return 0;
+            }
+            laserConsumptionSuppressedGroups.add(groupKey);
             const sourceIds = new Set(completedGroupRows.map(getPortalRowId));
             const linkedTargets = (allConsumptionRows || []).filter(consumptionRow =>
                 getAutoLaserConsumptionIds(consumptionRow).some(id => sourceIds.has(id))
@@ -4591,11 +4601,22 @@ async function addLaserRow() {
                 renderConsumptionTable();
                 renderConsumptionDashboard();
                 renderLaserDashboard();
+                taskHubLastRenderKey = '';
+                schedulePendingTaskHubRender();
                 setTimeout(() => refreshConsumptionData(true), 35000);
                 setTimeout(() => {
                     targets.forEach(target => pendingDeletedConsumptionIds.delete(String(getPortalRowId(target))));
                     refreshConsumptionData(true);
                 }, 90000);
+            }
+            if (options.scheduleRetries !== false) {
+                [15000, 45000].forEach(waitMs => {
+                    setTimeout(() => {
+                        void refreshConsumptionData(true)
+                            .then(() => deleteAutoLaserConsumptionRowsForGroup(row, { scheduleRetries: false }))
+                            .catch(error => console.error('Late Laser consumption cleanup failed:', error));
+                    }, waitMs);
+                });
             }
             return targets.length;
         }
@@ -4678,6 +4699,8 @@ async function addLaserRow() {
                             alert(`Requirement status was saved as No, but the linked Consumption request could not be deleted.\n${error.message}`);
                         }
                     } else {
+                        const updatedRow = allLaserRows.find(item => String(getPortalRowId(item)) === String(rid));
+                        if (updatedRow) laserConsumptionSuppressedGroups.delete(laserConsumptionGroupKey(updatedRow));
                         void syncLaserCompletionToConsumption(rid);
                     }
                 }
@@ -5667,6 +5690,7 @@ function taskHubNoAction(value) {
             });
 
             (Array.isArray(allConsumptionRows) ? allConsumptionRows : []).forEach(row => {
+                if (isAutoLaserConsumptionRow(row)) return;
                 const complete = taskHubFirst(getVal(row, ['Complete Date\nm/d/yyyy', 'Complete Date m/d/yyyy', 'Complete Date', 'CompleteDate']));
                 if (taskHubClosed(complete)) return;
                 const style = taskHubFirst(getVal(row, ['Style Number', 'Style', 'Style No.']));
