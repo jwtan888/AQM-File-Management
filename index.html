@@ -4199,6 +4199,7 @@ function getLaserDoneConsumptionRows(rows = allConsumptionRows) {
 async function addLaserRow() {
     if (!currentUser) return alert('Please login first.');
     if (!portalEditingEnabled()) return alert('Switch to Edit Mode to add a row.');
+    const existingLaserIds = new Set(allLaserRows.map(getPortalRowId).filter(Boolean));
     const receivedTime = document.getElementById('l_receivedTime').value.trim() || nowAsLaserDate();
     const startDate = receivedTime;
     const protoStage = document.getElementById('l_protoStage').value.trim();
@@ -4242,7 +4243,11 @@ async function addLaserRow() {
                     const el = document.getElementById(id); if(el) el.value = '';
                 });
                 document.getElementById('l_section').value = '';
-                refreshLaserData();
+                if (hasLaserConsumptionDate(payload.completeDate) && consumptionCompleteStatus === 'Yes') {
+                    void syncNewLaserCompletionAfterAdd(payload, existingLaserIds);
+                } else {
+                    refreshLaserData();
+                }
                 setTimeout(() => { btn.innerText = '+ ADD ROW'; btn.disabled = false; }, 2000);
             } catch(e) {
                 alert(`${e.message}\n\nThis usually means your Power Automate Add Flow has a field name mismatch. Check the Add Flow triggerBody() field names before retrying.`);
@@ -4482,6 +4487,35 @@ async function addLaserRow() {
             } finally {
                 laserConsumptionSyncing.delete(groupKey);
             }
+        }
+
+        async function syncNewLaserCompletionAfterAdd(payload, existingLaserIds) {
+            const expectedKey = [
+                payload.styleNumber,
+                payload.season,
+                payload.protoStage,
+                payload.category,
+                payload.garmentQty
+            ].map(laserConsumptionValue).map(value => value.toLowerCase()).join('|');
+            const retryDelays = [0, 2500, 5000, 10000];
+            for (const waitMs of retryDelays) {
+                if (waitMs) await delay(waitMs);
+                await refreshLaserData(true);
+                const newRow = allLaserRows
+                    .filter(row => {
+                        const id = getPortalRowId(row);
+                        return id
+                            && !existingLaserIds.has(id)
+                            && laserConsumptionGroupKey(row) === expectedKey
+                            && hasLaserConsumptionDate(getLaserCompleteDateRaw(row));
+                    })
+                    .sort((a, b) => Number(getPortalRowId(b)) - Number(getPortalRowId(a)))[0];
+                if (!newRow) continue;
+                const result = await syncLaserCompletionToConsumption(getPortalRowId(newRow));
+                if (result !== 'failed') return result;
+            }
+            console.warn('New completed Laser row was saved but was not available for Consumption auto-link within the retry window.');
+            return 'not-found';
         }
 
         async function deleteAutoLaserConsumptionRowsForGroup(row) {
