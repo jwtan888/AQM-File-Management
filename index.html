@@ -742,14 +742,6 @@
                         <input type="text" id="l_completeDate" placeholder="3/18/2026 13:15" class="p-2 border rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div class="flex flex-col gap-1">
-                        <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Cons. Start Date</label>
-                        <input type="text" id="l_consStart" placeholder="m/d/yyyy hh:mm or -" class="p-2 border rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Cons. End Date</label>
-                        <input type="text" id="l_consEnd" placeholder="m/d/yyyy hh:mm or -" class="p-2 border rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    <div class="flex flex-col gap-1">
                         <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Remark</label>
                         <input type="text" id="l_remark" placeholder="Optional" class="p-2 border rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
@@ -798,16 +790,13 @@
                             <th class="p-3 date-col">Start Date</th>
                             <th class="p-3 date-col">Complete Date</th>
                             <th class="p-3">M&A PIC</th>
-                            <th class="p-3">Cons. Start</th>
-                            <th class="p-3">Cons. End</th>
-                            <th class="p-3">Cons. PIC</th>
                             <th class="p-3">Remark</th>
                             <th class="p-3 date-col">Required Date</th>
-                            <th class="p-3">Consumption Complete Status</th>
+                            <th class="p-3">Consumption Require Status</th>
                         </tr>
                     </thead>
                     <tbody id="laserTable" class="text-slate-700">
-                        <tr><td colspan="20" class="p-6 text-center text-slate-400 italic text-xs">Loading laser data...</td></tr>
+                        <tr><td colspan="17" class="p-6 text-center text-slate-400 italic text-xs">Loading laser data...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1987,6 +1976,7 @@
         const consumptionFetchURL  = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/aee706c4629744f5b5aa3a756eec00f2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=tU6CI-qPTZJIJgVViryVC6t9oxk4_gL8xvDgB4e_jwE";
         const consumptionUpdateURL = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/f0612d5d6e1645c1a3a44c2201299a93/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Q_RMUTXSecFlsNb_o2HhIcjrpN_LyunPb4bkvcUJCpI";
         const consumptionAddURL    = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/116473b95bb84850832555a76351ddd1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ZzA8AD1K6CBOYFBNxzSJv3p2aKFgxvfuD_Q3VJifGGM";
+        const consumptionDeleteURL = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/20/workflows/69d9f71b2ce04908973cb565e18bd544/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=K1aL3BD-vn-zQxsYRIvbsG9x5oTZidgBhA-Cs1vP_SE";
         const attendanceFetchURL = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/9f7d2b43fe80443ea830ec0ef1631183/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=0geeH4paQU60TyHlrF0_6_CGqXBmke3BEmk5IiwTxZ0";
         const actualSplitFetchURL = "https://defaultb4f081a089004baaa6a8ff79312af2.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/893a170849f34a6092a1f2f57748e3f5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=JkzXcmLThFEf9LJWakfp0mn_P0EQ3IWbT2g-KegNm5E";
         const actualSplitCacheKey = 'ma_attendance2_final_split_rows_cache';
@@ -3041,13 +3031,14 @@ function hasLaserConsumptionDate(value) {
     return !!text && text !== '---' && !isPortalNoActionValue(text);
 }
 
-function resolveLaserConsumptionCompleteStatus(protoStage, consStart, consEnd, manualStatus = '', existingStatus = '') {
-    if (hasLaserConsumptionDate(consStart) && hasLaserConsumptionDate(consEnd)) return 'Yes';
+function resolveLaserConsumptionRequireStatus(protoStage, manualStatus = '', existingStatus = '') {
+    const proto = String(protoStage ?? '').trim().toLowerCase();
+    if (proto === 'mk' || proto === 'mockup' || proto === 'mock-up') return 'No';
     const manual = String(manualStatus ?? '').trim();
-    if (manual) return manual;
+    if (/^(yes|no)$/i.test(manual)) return manual.toLowerCase() === 'yes' ? 'Yes' : 'No';
     const existing = String(existingStatus ?? '').trim();
-    if (existing) return existing;
-    return String(protoStage ?? '').trim().toUpperCase() === 'MK' ? 'No' : '';
+    if (/^(yes|no)$/i.test(existing)) return existing.toLowerCase() === 'yes' ? 'Yes' : 'No';
+    return 'Yes';
 }
 
         function hasLaserCompleteDate(row) {
@@ -3699,7 +3690,6 @@ function getLaserPendingConsumptionRows(rows) {
         const isPending = laserComplete && laserComplete !== '---'
             && (!consumptionStart || consumptionStart === '---')
             && consumptionPic !== 'N/A'
-            && completeStatus !== 'yes'
             && completeStatus !== 'no'
             && !doneTaskKeys.has(taskKey)
             && !naHiddenIds.has(rowId)
@@ -3755,11 +3745,10 @@ function getLaserPendingConsumptionRows(rows) {
             // Pending = Complete Date filled + tracked proto stage + consumption not started or completed.
             const pending = getLaserPendingConsumptionRows(allLaserRows);
 
-            // Done = Consumption Complete Status = 'Yes' OR Consumption End Date is filled
+            // Legacy Laser consumption is done only when its Consumption End Date is filled.
             const done = allLaserRows.filter(r => {
                 const ce = convertExcelDate(getVal(r, ['Consumption Complete Date','ConsumptionCompleteDate','Cons End']));
-                const statusVal = String(getVal(r, ['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status'])).trim().toLowerCase();
-                return (ce && ce !== '---') || statusVal === 'yes';
+                return ce && ce !== '---';
             });
 
             const elTotal   = document.getElementById('ld-total');
@@ -4035,7 +4024,7 @@ function getLaserPendingConsumptionRows(rows) {
                     return;
                 }
                 const tbody = document.getElementById('laserTable');
-                if (tbody) tbody.innerHTML = '<tr><td colspan="20" class="p-6 text-center text-amber-500 italic text-xs">Laser data is still syncing. Retrying automatically...</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="17" class="p-6 text-center text-amber-500 italic text-xs">Laser data is still syncing. Retrying automatically...</td></tr>';
                 if (st) { st.innerText = 'Retrying...'; st.classList.remove('sync-active'); }
                 if (!isSilent) setTimeout(() => safeRun(() => refreshLaserData(true)), 15000);
             }
@@ -4050,10 +4039,10 @@ function getLaserPendingConsumptionRows(rows) {
             if (!allLaserRows.length) {
                 setPortalFilterStatus('laserFilterStatus', { search: laserSearchQuery, month: getLaserMonthFilter(), shown: 0, total: 0 });
                 if (laserDataLoading) {
-                    tbody.innerHTML = '<tr><td colspan="20" class="p-6 text-center text-slate-400 italic text-xs">Loading laser data...</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="17" class="p-6 text-center text-slate-400 italic text-xs">Loading laser data...</td></tr>';
                     return;
                 }
-                tbody.innerHTML = '<tr><td colspan="20" class="p-6 text-center text-slate-400 italic text-xs">No laser records found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="17" class="p-6 text-center text-slate-400 italic text-xs">No laser records found.</td></tr>';
                 return;
             }
             const laserMF = getLaserMonthFilter();
@@ -4106,7 +4095,7 @@ function getLaserPendingConsumptionRows(rows) {
             }).map(item => item.row);
             setPortalFilterStatus('laserFilterStatus', { search: laserSearchQuery, month: laserMF, shown: laserRowsToShow.length, total: allLaserRows.length });
             if (!laserRowsToShow.length) {
-                tbody.innerHTML = `<tr><td colspan="20" class="p-6 text-center text-slate-400 italic text-xs">No results for "${laserSearchQuery}".</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="17" class="p-6 text-center text-slate-400 italic text-xs">No results for "${laserSearchQuery}".</td></tr>`;
                 return;
             }
             tbody.innerHTML = laserRowsToShow.map(i => {
@@ -4132,24 +4121,19 @@ function getLaserPendingConsumptionRows(rows) {
                 const laserPendingStatus = renderLaserPendingStatusBadge(i);
                 const maPic        = getMAPic(i);
                 const canEditLaserCompletion = portalEditingEnabled() && (isAdmin || String(currentUser).trim() === String(maPic).trim());
-                const consStart    = convertExcelDate(getVal(i, ['Consumption Start Date','ConsumptionStartDate','Cons Start']));
-                const consEnd      = convertExcelDate(getVal(i, ['Consumption Complete Date','ConsumptionCompleteDate','Cons End']));
-                const consPic      = getVal(i, ['Consumption PIC','ConsumptionPIC','Cons PIC']);
                 const remark       = getVal(i, ['Remark','Remarks']);
                 const isComplete   = !isLaserNoAction && completeDate && completeDate !== '---';
                 const rid          = String(id);
-                const existingConsPic = String(consPic || '').trim();
-                const hasLockedConsOwner = !!existingConsPic && existingConsPic !== '---' && existingConsPic.toUpperCase() !== 'N/A';
-                const canEditExistingConsOwner = isAdmin || (currentUser && currentUser === existingConsPic);
-                // Consumption always editable — no lock needed
-                const consDisabled = '';
-                const consClass    = 'manual-input admin-input';
 
-                // Consumption Complete Status column — Gavin-only editable
-                const consCompleteStatus = getVal(i, ['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status']);
-                // Derive completion: explicit 'Yes' OR consEnd date filled
-                const consIsDone = (String(consCompleteStatus).trim().toLowerCase() === 'yes')
-                    || (consEnd && consEnd !== '---' && String(consEnd).trim() !== '');
+                const storedRequireStatus = getVal(i, ['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status']);
+                const consumptionRequireStatus = resolveLaserConsumptionRequireStatus(proto, '', storedRequireStatus);
+                const requiresConsumption = consumptionRequireStatus === 'Yes';
+                const requireStatusControl = canEditLaserCompletion
+                    ? `<select id="le-consStatus-${rid}" class="manual-input admin-input" style="width:80px">
+                        <option value="Yes" ${requiresConsumption?'selected':''}>Yes</option>
+                        <option value="No" ${!requiresConsumption?'selected':''}>No</option>
+                       </select>`
+                    : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${requiresConsumption?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600'}">${consumptionRequireStatus}</span>`;
 
                 const sectionDropdown = (editable) => editable
                     ? `<select id="le-section-${rid}" class="manual-input admin-input" style="width:130px">
@@ -4184,25 +4168,16 @@ function getLaserPendingConsumptionRows(rows) {
                             </div>
                         </td>
                         <td class="p-2">${maPicDropdown}</td>
-                        <td class="p-2 date-cell"><input id="le-consStart-${rid}" class="${consClass}" value="${consStart==='---'?'':consStart}" placeholder="m/d/yyyy hh:mm or -"${consDisabled}></td>
-                        <td class="p-2 date-cell"><input id="le-consEnd-${rid}" class="${consClass}" value="${consEnd==='---'?'':consEnd}" placeholder="m/d/yyyy hh:mm or -"${consDisabled}></td>
-                        <td class="p-2"><input id="le-consPic-${rid}" class="${consClass}" value="${consPic==='---'?'':consPic}" placeholder="PIC"${consDisabled}></td>
                         <td class="p-2"><input id="le-remark-${rid}" class="manual-input" value="${remark==='---'?'':remark}" placeholder="Remark"></td>
                         <td class="p-2 date-cell"><input id="le-requiredDate-${rid}" class="manual-input admin-input" value="${requiredDate==='---'?'':requiredDate}" placeholder="m/d/yyyy or -"></td>
                         <td class="p-2">
                             <div class="flex flex-col gap-1">
-                                <select id="le-consStatus-${rid}" class="manual-input admin-input" style="width:80px">
-                                    <option value="" ${!consIsDone&&consCompleteStatus==='---'?'selected':''}>—</option>
-                                    <option value="Yes" ${consIsDone?'selected':''}>Yes</option>
-                                    <option value="No" ${(!consIsDone&&consCompleteStatus==='No')?'selected':''}>No</option>
-                                </select>
+                                ${requireStatusControl}
                                 <button onclick="saveLaserRow('${rid}', event)" class="bg-blue-600 text-white text-[9px] font-bold px-3 py-1 rounded hover:bg-blue-700 whitespace-nowrap">SAVE</button>
                             </div>
                         </td>
                     </tr>`;
                 } else {
-                    // Regular users: once a row has a Consumption PIC owner, only that PIC or Gavin can edit it
-                    const canEditCons = portalEditingEnabled() && (!hasLockedConsOwner || canEditExistingConsOwner);
                     return `<tr class="border-b hover:bg-slate-50" id="lrow-${rid}">
                         <td class="p-3 font-mono text-slate-400">${id}</td>
                         <td class="p-3 text-slate-500 date-cell">${received}</td>
@@ -4222,43 +4197,19 @@ function getLaserPendingConsumptionRows(rows) {
                             ? `<div class="flex flex-col gap-1"><input id="le-completeDate-${rid}" class="manual-input admin-input" value="${completeDate==='---'?'':completeDate}" placeholder="m/d/yyyy hh:mm or -">${laserPendingStatus}</div>`
                             : (laserPendingStatus || completeDate)}</td>
                         <td class="p-3 font-medium">${maPic}</td>
-                        <td class="p-3">${canEditCons
-                            ? `<input id="le-consStart-${rid}" class="manual-input admin-input" value="${consStart==='---'?'':consStart}" placeholder="m/d/yyyy hh:mm or -">`
-                            : `<span>${consStart}</span>`}</td>
-                        <td class="p-3">${canEditCons
-                            ? `<input id="le-consEnd-${rid}" class="manual-input admin-input" value="${consEnd==='---'?'':consEnd}" placeholder="m/d/yyyy hh:mm or -">`
-                            : `<span>${consEnd}</span>`}</td>
-                        <td class="p-3">
-                            ${canEditCons
-                                ? `<span class="text-blue-700 font-bold text-xs">${currentUser}</span>`
-                                : `<span class="text-slate-600 font-bold text-xs">${consPic}</span>`}
-                        </td>
-                        <td class="p-3">${canEditCons
+                        <td class="p-3">${canEditLaserCompletion
                             ? `<input id="le-remark-${rid}" class="manual-input admin-input" value="${remark==='---'?'':remark}" placeholder="Remark">`
                             : `<span class="italic text-slate-400 text-[10px]">${remark}</span>`}</td>
                         <td class="p-3 date-cell ${requiredDate !== '---' ? 'text-amber-600 font-bold' : 'text-slate-400'}">${requiredDate}</td>
                         <td class="p-3">
                             <div class="flex flex-col gap-1">
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${consIsDone?'bg-emerald-100 text-emerald-700': String(consCompleteStatus).trim().toLowerCase()==='no'?'bg-red-100 text-red-600':'bg-slate-100 text-slate-500'}">${consIsDone?'Yes': String(consCompleteStatus).trim().toLowerCase()==='no'?'No':'—'}</span>
+                                ${requireStatusControl}
                                 ${canEditLaserCompletion?`<button onclick="saveLaserRow('${rid}', event)" class="bg-blue-600 text-white text-[9px] font-bold px-3 py-1 rounded hover:bg-blue-700 whitespace-nowrap">SAVE LASER</button>`:''}
-                                ${canEditCons?`<button onclick="saveConsumption('${rid}', event)" class="bg-emerald-600 text-white text-[9px] font-bold px-3 py-1 rounded hover:bg-emerald-700 whitespace-nowrap">SAVE</button>`:''}
                             </div>
                         </td>
                     </tr>`;
                 }
             }).join('');
-        }
-
-        // When Gavin types a complete date, unlock consumption fields immediately in the DOM
-        function onCompleteDateChange(rid) {
-            const val = document.getElementById(`le-completeDate-${rid}`)?.value.trim();
-            const locked = !val;
-            ['le-consStart','le-consEnd','le-consPic'].forEach(prefix => {
-                const el = document.getElementById(`${prefix}-${rid}`);
-                if (!el) return;
-                el.disabled = locked;
-                el.className = locked ? 'manual-input bg-slate-100 text-slate-400 cursor-not-allowed' : 'manual-input admin-input';
-            });
         }
 
         function updateLaserPicDisplay() {
@@ -4272,9 +4223,9 @@ async function addLaserRow() {
     const receivedTime = document.getElementById('l_receivedTime').value.trim() || nowAsLaserDate();
     const startDate = receivedTime;
     const protoStage = document.getElementById('l_protoStage').value.trim();
-    const consStart = toExcelDateFormat(document.getElementById('l_consStart').value.trim());
-    const consEnd = toExcelDateFormat(document.getElementById('l_consEnd').value.trim());
-    const consumptionCompleteStatus = resolveLaserConsumptionCompleteStatus(protoStage, consStart, consEnd);
+    const consStart = '';
+    const consEnd = '';
+    const consumptionCompleteStatus = resolveLaserConsumptionRequireStatus(protoStage);
     const payload = withLaserStartDateFields({
         receivedTime:  toExcelDateFormat(receivedTime),
         season:        document.getElementById('l_season').value.trim(),
@@ -4308,7 +4259,7 @@ async function addLaserRow() {
                 clearPortalTabDirty('laser');
                 ['l_receivedTime','l_season','l_styleNumber','l_category','l_protoStage',
                  'l_garmentQty','l_laserParts','l_ironParts','l_trimParts',
-                 'l_completeDate','l_consStart','l_consEnd','l_remark'].forEach(id => {
+                 'l_completeDate','l_remark'].forEach(id => {
                     const el = document.getElementById(id); if(el) el.value = '';
                 });
                 document.getElementById('l_section').value = '';
@@ -4344,6 +4295,260 @@ const consumptionTaskKey = r => [
     getVal(r, ['Season']),
     getVal(r, ['Garment Quantity','GarmentQty','Garment Qty'])
 ].map(v => String(v ?? '').trim().toLowerCase()).join('|');
+
+        // Laser completion creates at most one Consumption task per matching group.
+        const laserConsumptionSyncing = new Set();
+
+        function laserConsumptionValue(value) {
+            const text = String(value ?? '').trim();
+            return text === '---' || isPortalNoActionValue(text) ? '' : text;
+        }
+
+        function getLaserConsumptionGroup(row) {
+            return {
+                style: laserConsumptionValue(getVal(row, ['Style Number','StyleNumber','Style'])),
+                season: laserConsumptionValue(getVal(row, ['Season'])),
+                protoStage: laserConsumptionValue(getVal(row, ['Proto Stage','ProtoStage','Stage'])),
+                category: laserConsumptionValue(getVal(row, ['Category'])),
+                garmentQty: laserConsumptionValue(getVal(row, ['Garment Quantity','GarmentQty','Garment Qty']))
+            };
+        }
+
+        function laserConsumptionGroupKey(row) {
+            const group = getLaserConsumptionGroup(row);
+            return [group.style, group.season, group.protoStage, group.category, group.garmentQty]
+                .map(value => value.toLowerCase()).join('|');
+        }
+
+        function hasLaserConsumptionGroup(row) {
+            const group = getLaserConsumptionGroup(row);
+            return !!(group.style && group.season && group.protoStage);
+        }
+
+        function getPortalRowId(row) {
+            return laserConsumptionValue(getVal(row, ['Id','ID','id','Record ID','recordID','RecordID','No','No.','No_x002e_']));
+        }
+
+        function getConsumptionCompleteDateRaw(row) {
+            return getVal(row, ['Complete Date m/d/yyyy','Complete Date','CompleteDate','Complete Date\nm/d/yyyy']);
+        }
+
+        function getLaserConsumptionStartRaw(row) {
+            return getVal(row, ['Consumption Start Date','ConsumptionStartDate','Cons Start']);
+        }
+
+        function getLaserConsumptionEndRaw(row) {
+            return getVal(row, ['Consumption Complete Date','ConsumptionCompleteDate','Cons End']);
+        }
+
+        function getLaserConsumptionPicRaw(row) {
+            return laserConsumptionValue(getVal(row, ['Consumption PIC','ConsumptionPIC','Cons PIC']));
+        }
+
+        function laserRequiresConsumption(row) {
+            const status = laserConsumptionValue(getVal(row, [
+                'Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status'
+            ])).toLowerCase();
+            const protoStage = laserConsumptionValue(getVal(row, ['Proto Stage','ProtoStage','Stage'])).toLowerCase();
+            const consumptionPic = getLaserConsumptionPicRaw(row).toLowerCase();
+            const start = getLaserConsumptionStartRaw(row);
+            const end = getLaserConsumptionEndRaw(row);
+            return status !== 'no'
+                && consumptionPic !== 'n/a'
+                && !isPortalNoActionValue(start)
+                && !isPortalNoActionValue(end)
+                && protoStage !== 'mk'
+                && protoStage !== 'mockup'
+                && protoStage !== 'mock-up';
+        }
+
+        function consumptionMatchesLaserGroup(consumptionRow, group) {
+            const consumption = getLaserConsumptionGroup(consumptionRow);
+            return consumption.style.toLowerCase() === group.style.toLowerCase()
+                && consumption.season.toLowerCase() === group.season.toLowerCase()
+                && consumption.protoStage.toLowerCase() === group.protoStage.toLowerCase()
+                && (!consumption.category || consumption.category.toLowerCase() === group.category.toLowerCase())
+                && (!consumption.garmentQty || consumption.garmentQty === group.garmentQty);
+        }
+
+        function addCalendarDays(date, days) {
+            const next = new Date(date.getTime());
+            next.setDate(next.getDate() + days);
+            return next;
+        }
+
+        function portalDateOnly(date) {
+            return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+        }
+
+        function getAutoLaserConsumptionIds(row) {
+            const remark = laserConsumptionValue(getVal(row, ['Remark','Remarks']));
+            const current = remark.match(/Auto from Laser IDs?\s+([\d,\s]+)/i)?.[1]
+                ?.match(/\d+/g) || [];
+            const legacy = remark.match(/Latest Laser ID\s+(\d+)/i)?.[1];
+            return Array.from(new Set([...current, ...(legacy ? [legacy] : [])]));
+        }
+
+        function hasAutoLaserConsumptionLink(row) {
+            return getAutoLaserConsumptionIds(row).length > 0;
+        }
+
+        function buildLaserConsumptionAutoRemark(rows) {
+            const sourceRows = Array.isArray(rows) ? rows : [rows];
+            const group = getLaserConsumptionGroup(sourceRows[0]);
+            const pics = Array.from(new Set(sourceRows
+                .map(row => laserConsumptionValue(getMAPic(row)))
+                .filter(Boolean)));
+            const ids = Array.from(new Set(sourceRows
+                .map(getPortalRowId)
+                .filter(Boolean)))
+                .sort((a, b) => Number(a) - Number(b));
+            const idLabel = ids.length === 1
+                ? `Auto from Laser ID ${ids[0]}`
+                : `Auto from Laser IDs ${ids.join(', ')}`;
+            return `Laser M&A PIC: ${pics.join(', ') || '-'}`
+                + ` / ${idLabel}`
+                + ` / Category ${group.category || '-'}`
+                + ` / Garment Qty ${group.garmentQty || '-'}`;
+        }
+
+        async function syncLaserCompletionToConsumption(rid, options = {}) {
+            const savedRow = allLaserRows.find(row => String(getVal(row, ['Id','ID','id'])) === String(rid));
+            if (!savedRow || isPortalNoActionValue(getLaserCompleteDateRaw(savedRow)) || !hasLaserConsumptionGroup(savedRow) || !laserRequiresConsumption(savedRow)) return 'skipped';
+
+            const group = getLaserConsumptionGroup(savedRow);
+            const groupKey = laserConsumptionGroupKey(savedRow);
+            if (laserConsumptionSyncing.has(groupKey)) return 'skipped';
+            const groupedRows = allLaserRows
+                .filter(row =>
+                    hasLaserConsumptionGroup(row)
+                    && laserRequiresConsumption(row)
+                    && laserConsumptionGroupKey(row) === groupKey
+                    && rawToLocalDate(getLaserCompleteDateRaw(row))
+                    && getPortalRowId(row)
+                )
+                .sort((a, b) =>
+                    rawToLocalDate(getLaserCompleteDateRaw(b)) - rawToLocalDate(getLaserCompleteDateRaw(a))
+                );
+            if (!groupedRows.length) return 'skipped';
+            const latestRow = groupedRows[0];
+            const linkedLaserIds = new Set(groupedRows.map(getPortalRowId));
+            const completeDate = rawToLocalDate(getLaserCompleteDateRaw(latestRow));
+            const requiredDate = portalDateOnly(addCalendarDays(completeDate, 2));
+            laserConsumptionSyncing.add(groupKey);
+
+            try {
+                if (options.refreshConsumption !== false) await refreshConsumptionData(true);
+                const matches = (allConsumptionRows || []).filter(row => consumptionMatchesLaserGroup(row, group));
+                const linkedTarget = matches.find(row =>
+                    getAutoLaserConsumptionIds(row).some(id => linkedLaserIds.has(id))
+                );
+                const target = linkedTarget || matches.find(row => !hasAutoLaserConsumptionLink(row));
+                if (target) {
+                    const id = getPortalRowId(target);
+                    const existingRequired = formatPortalDatePayloadFromRaw(
+                        getVal(target, ['Required Date','RequiredDate']),
+                        { dateOnly: true }
+                    );
+                    const existingStart = formatPortalDatePayloadFromRaw(
+                        getVal(target, ['Start Date m/d/yyyy','Start Date','StartDate'])
+                    );
+                    const existingComplete = formatPortalDatePayloadFromRaw(getConsumptionCompleteDateRaw(target));
+                    const existingPic = laserConsumptionValue(getMAPic(target));
+                    const existingRemark = laserConsumptionValue(getVal(target, ['Remark','Remarks']));
+                    const laserStart = groupedRows
+                        .map(row => formatPortalDatePayloadFromRaw(getLaserConsumptionStartRaw(row)))
+                        .find(Boolean) || '';
+                    const laserComplete = groupedRows
+                        .map(row => formatPortalDatePayloadFromRaw(getLaserConsumptionEndRaw(row)))
+                        .find(Boolean) || '';
+                    const laserPic = groupedRows.map(getLaserConsumptionPicRaw).find(Boolean) || '';
+                    const desiredStart = laserStart || existingStart;
+                    const desiredComplete = laserComplete || existingComplete;
+                    const desiredPic = laserPic || existingPic || laserConsumptionValue(getMAPic(latestRow));
+                    const autoRemark = buildLaserConsumptionAutoRemark(groupedRows);
+                    const desiredRemark = linkedTarget
+                        ? existingRemark || autoRemark
+                        : existingRemark ? `${existingRemark} / ${autoRemark}` : autoRemark;
+                    if (!id || (
+                        existingRequired === requiredDate
+                        && existingStart === desiredStart
+                        && existingComplete === desiredComplete
+                        && existingPic === desiredPic
+                        && existingRemark === desiredRemark
+                    )) return 'skipped';
+
+                    const payload = {
+                        id,
+                        recordID: id,
+                        season: group.season,
+                        requiredDate,
+                        startDate: desiredStart,
+                        completeDate: desiredComplete,
+                        pic: desiredPic,
+                        remark: desiredRemark
+                    };
+                    const response = await postPortalJson(consumptionUpdateURL, payload);
+                    await readPortalWriteResult(response, 'Laser consumption task update');
+                    applyConsumptionSavePatch(id, payload);
+                    return 'updated';
+                }
+
+                const payload = {
+                    receivedTime: formatPortalDatePayloadFromRaw(getLaserCompleteDateRaw(latestRow)),
+                    season: group.season,
+                    styleNumber: group.style,
+                    jobNo: '',
+                    requestBy: '',
+                    protoStage: group.protoStage,
+                    requestType: 'Consumption and Artwork',
+                    requiredDate,
+                    startDate: groupedRows
+                        .map(row => formatPortalDatePayloadFromRaw(getLaserConsumptionStartRaw(row)))
+                        .find(Boolean) || '',
+                    completeDate: groupedRows
+                        .map(row => formatPortalDatePayloadFromRaw(getLaserConsumptionEndRaw(row)))
+                        .find(Boolean) || '',
+                    pic: groupedRows.map(getLaserConsumptionPicRaw).find(Boolean)
+                        || laserConsumptionValue(getMAPic(latestRow)),
+                    remark: buildLaserConsumptionAutoRemark(groupedRows)
+                };
+                const response = await postPortalJson(consumptionAddURL, payload);
+                await readPortalWriteResult(response, 'Laser consumption task create');
+                if (options.scheduleRefresh !== false) schedulePortalWriteRefresh(refreshConsumptionData);
+                return 'created';
+            } catch (error) {
+                console.error('Laser-to-consumption sync failed:', error);
+                return 'failed';
+            } finally {
+                laserConsumptionSyncing.delete(groupKey);
+            }
+        }
+
+        async function deleteAutoLaserConsumptionRowsForGroup(row) {
+            if (!row || !hasLaserConsumptionGroup(row)) return 0;
+            const groupKey = laserConsumptionGroupKey(row);
+            await refreshConsumptionData(true);
+            const completedGroupRows = allLaserRows.filter(candidate =>
+                hasLaserConsumptionGroup(candidate)
+                && laserConsumptionGroupKey(candidate) === groupKey
+                && rawToLocalDate(getLaserCompleteDateRaw(candidate))
+                && getPortalRowId(candidate)
+            );
+            if (completedGroupRows.some(laserRequiresConsumption)) return 0;
+            const sourceIds = new Set(completedGroupRows.map(getPortalRowId));
+            const targets = (allConsumptionRows || []).filter(consumptionRow =>
+                getAutoLaserConsumptionIds(consumptionRow).some(id => sourceIds.has(id))
+            );
+            for (const target of targets) {
+                const id = getPortalRowId(target);
+                if (!id) continue;
+                const response = await postPortalJson(consumptionDeleteURL, { id: String(id) });
+                await readPortalWriteResult(response, 'Laser consumption task delete');
+            }
+            if (targets.length) schedulePortalWriteRefresh(refreshConsumptionData);
+            return targets.length;
+        }
 
         function saveNaHidden() {
             localStorage.setItem('ma_na_hidden', JSON.stringify(Array.from(naHiddenIds)));
@@ -4520,10 +4725,8 @@ const consumptionTaskKey = r => [
         : consPicRaw;
     const protoStageToSave = fieldValue('proto', ['Proto Stage','ProtoStage','Stage']);
     const manualConsumptionStatus = document.getElementById(`le-consStatus-${rid}`)?.value || '';
-    const consumptionCompleteStatus = resolveLaserConsumptionCompleteStatus(
+    const consumptionCompleteStatus = resolveLaserConsumptionRequireStatus(
         protoStageToSave,
-        consStartNorm,
-        consEndNorm,
         manualConsumptionStatus,
         existing(['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status'])
     );
@@ -4556,6 +4759,14 @@ const consumptionTaskKey = r => [
                 const res = await postPortalJson(laserUpdateURL, payload);
                 await readPortalWriteResult(res, 'Laser update');
                 applyLaserSavePatch(rid, payload, { renderTable: false });
+                if (hasLaserConsumptionDate(completeNorm)) {
+                    if (consumptionCompleteStatus === 'No') {
+                        void deleteAutoLaserConsumptionRowsForGroup(allLaserRows.find(item => String(getPortalRowId(item)) === String(rid)))
+                            .catch(error => console.error('Laser consumption task delete failed:', error));
+                    } else {
+                        void syncLaserCompletionToConsumption(rid);
+                    }
+                }
                 btn.innerText = 'SAVED ✓';
                 btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
                 btn.classList.add('bg-emerald-600');
@@ -4573,77 +4784,6 @@ const consumptionTaskKey = r => [
             }
         }
 
-        // PIC saves consumption fields only (consStart, consEnd, consumptionPic auto = currentUser)
-        async function saveConsumption(rid, event) {
-            const btn = event.target; btn.innerText = 'SAVING...'; btn.disabled = true;
-            const row = allLaserRows.find(r => String(getVal(r, ['Id','ID','id'])) === String(rid));
-            if (!row) { btn.innerText = 'SAVE'; btn.disabled = false; return; }
-            const existingConsPic = String(getVal(row, ['Consumption PIC','ConsumptionPIC','Cons PIC']) || '').trim();
-            const hasLockedConsOwner = !!existingConsPic && existingConsPic !== '---' && existingConsPic.toUpperCase() !== 'N/A';
-            if (hasLockedConsOwner && currentUser !== existingConsPic && !isPortalAdmin()) {
-                alert(`This consumption record is locked by ${existingConsPic}. Only ${existingConsPic}, Gavin or Joe can edit it.`);
-                btn.innerText = 'SAVE'; btn.disabled = false; return;
-            }
-            const consStart = document.getElementById(`le-consStart-${rid}`)?.value.trim() || '';
-            const consEnd   = document.getElementById(`le-consEnd-${rid}`)?.value.trim() || '';
-            // Send full row payload but only consumption fields are changed; others kept as-is from allLaserRows
-            const consStartNorm = preparePortalDateFieldPayload(consStart, getVal(row, ['Consumption Start Date','ConsumptionStartDate','Cons Start']), { preferDayFirst: true, allowNoAction: true });
-            const consEndNorm = preparePortalDateFieldPayload(consEnd, getVal(row, ['Consumption Complete Date','ConsumptionCompleteDate','Cons End']), { preferDayFirst: true, allowNoAction: true });
-            if (!consStartNorm) { alert('Please fill Consumption Start Date.'); btn.innerText = 'SAVE'; btn.disabled = false; return; }
-            if ([consStartNorm, consEndNorm].some(v => v === null)) { alert('Invalid date format. Use d/m/yyyy, d/m/yyyy hh:mm, or - for no action.'); btn.innerText = 'SAVE'; btn.disabled = false; return; }
-            const protoStage = getVal(row, ['Proto Stage','ProtoStage','Stage']);
-            const consumptionCompleteStatus = resolveLaserConsumptionCompleteStatus(
-                protoStage,
-                consStartNorm,
-                consEndNorm,
-                '',
-                getVal(row, ['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status'])
-            );
-            const payload = withLaserStartDateFields({
-                recordID:       rid,
-                receivedTime:   formatPortalDatePayloadFromRaw(getVal(row, ['Received Time','ReceivedTime','Received'])),
-                season:         getVal(row, ['Season']),
-                styleNumber:    getVal(row, ['Style Number','StyleNumber','Style']),
-                section:        getVal(row, ['Section']),
-                category:       getVal(row, ['Category']),
-                protoStage,
-                garmentQty:     getVal(row, ['Garment Quantity','GarmentQty','Garment Qty']),
-                laserParts:     getVal(row, ['Laser Part Count','LaserPartCount','Laser Parts']),
-                ironParts:      getVal(row, ['Ironing Part Count','IroningPartCount','Iron Parts']),
-                trimParts:      getVal(row, ['Laser Trim Part Count','LaserTrimPartCount','Trim Parts']),
-                completeDate:   formatPortalDatePayloadFromRaw(getVal(row, ['Complete Date','CompleteDate'])),
-                requiredDate:   formatPortalDatePayloadFromRaw(getLaserRequiredDateRaw(row), { dateOnly: true }),
-                'Required Date': formatPortalDatePayloadFromRaw(getLaserRequiredDateRaw(row), { dateOnly: true }),
-                maPic:          getMAPic(row),
-                consStart:      consStartNorm,
-                consEnd:        consEndNorm,
-                consumptionPic: currentUser,
-                'Consumption PIC': currentUser,
-                consumptionCompleteStatus,
-                'consumption complete status': consumptionCompleteStatus,
-                'Consumption Complete Status': consumptionCompleteStatus,
-                remark:         document.getElementById(`le-remark-${rid}`)?.value.trim() || getVal(row, ['Remark','Remarks'])
-            }, formatPortalDatePayloadFromRaw(getLaserStartDateRaw(row)));
-            try {
-                const res = await postPortalJson(laserUpdateURL, payload);
-                await readPortalWriteResult(res, 'Consumption update');
-                applyLaserSavePatch(rid, payload, { renderTable: false });
-                btn.innerText = 'SAVED ✓';
-                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
-                btn.classList.add('bg-green-700');
-                setTimeout(() => {
-                    btn.innerText = 'SAVE';
-                    btn.disabled = false;
-                    btn.classList.remove('bg-green-700');
-                    btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
-                    clearPortalTabDirty('laser');
-                    refreshLaserData(true);
-                }, 2000);
-            } catch(e) {
-                alert(e.message || 'Consumption update failed. Data was not updated.');
-                btn.innerText = 'ERROR'; setTimeout(() => { btn.innerText = 'SAVE'; btn.disabled = false; }, 2000);
-            }
-        }
         async function refreshLiveLogs(isSilent = false) {
             const st = document.getElementById('syncStatus');
             if(!isSilent && st) st.classList.add('sync-active');
