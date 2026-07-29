@@ -990,7 +990,7 @@
                 <div onclick="drillDownLaserDashboard()" class="bg-white p-6 rounded-xl border shadow-sm cursor-pointer hover:border-amber-400 transition-all">
                     <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1">Pending Consumption</p>
                     <h2 id="ld-pending" class="text-3xl font-bold text-amber-600">0</h2>
-                    <p class="text-[9px] text-slate-400 mt-1">Complete Date filled · No Consumption Start · P1–P6 / Concept / GGP etc.</p>
+                    <p class="text-[9px] text-slate-400 mt-1">Auto from Laser · Not completed in Consumption</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl border shadow-sm">
                     <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Consumption Done</p>
@@ -1063,9 +1063,9 @@
                                 <th class="p-2">Style</th>
                                 <th class="p-2">Proto Stage</th>
                                 <th class="p-2">Season</th>
-                                <th class="p-2">Section</th>
-                                <th class="p-2">M&A PIC</th>
-                                <th class="p-2">Complete Date</th>
+                                <th class="p-2">Request By</th>
+                                <th class="p-2">Consumption PIC</th>
+                                <th class="p-2">Received Time</th>
                                 <th class="p-2"></th>
                             </tr>
                         </thead>
@@ -2525,6 +2525,7 @@
             renderConsumptionTable();
             populateConsumptionMonthFilter();
             renderConsumptionDashboard();
+            renderLaserDashboard();
             schedulePortalWriteRefresh(refreshConsumptionData);
         }
 
@@ -3669,37 +3670,25 @@ function resolveLaserConsumptionRequireStatus(protoStage, manualStatus = '', exi
         }
         let laserTrendChart = null, laserConsumptionTrendChart = null;
 
-function getLaserPendingConsumptionRows(rows) {
-    const sourceRows = Array.isArray(rows) ? rows : [];
-    const doneTaskKeys = new Set();
-    sourceRows.forEach(row => {
-        const complete = getVal(row, ['Consumption Complete Date','ConsumptionCompleteDate','Cons End','ConsEnd','Consumption End']);
-        if (hasLaserConsumptionDate(complete)) doneTaskKeys.add(consumptionTaskKey(row));
+function isAutoLaserConsumptionRow(row) {
+    const requestBy = String(getVal(row, ['Request By','RequestBy','Requestor']) || '').trim().toLowerCase();
+    return requestBy === 'auto from laser' || getAutoLaserConsumptionIds(row).length > 0;
+}
+
+function getLaserPendingConsumptionRows(rows = allConsumptionRows) {
+    return (Array.isArray(rows) ? rows : []).filter(row => {
+        if (!isAutoLaserConsumptionRow(row)) return false;
+        const start = getVal(row, ['Start Date m/d/yyyy','Start Date','StartDate']);
+        const complete = getConsumptionCompleteDateRaw(row);
+        if (isPortalNoActionValue(start) || isPortalNoActionValue(complete)) return false;
+        return !hasLaserConsumptionDate(complete);
     });
-    const shownTaskKeys = new Set();
-    return sourceRows.filter(row => {
-        if (isPortalNoActionValue(getLaserCompleteDateRaw(row))) return false;
-        const laserComplete = convertExcelDate(getLaserCompleteDateRaw(row));
-                const consumptionStart = convertExcelDate(getVal(row, ['Consumption Start Date','ConsumptionStartDate','Cons Start']));
-                const proto = getVal(row, ['Proto Stage','ProtoStage','Stage']);
-                const rowId = String(getVal(row, ['Id','ID','id']));
-        const styleProto = `${getVal(row,['Style Number','StyleNumber','Style'])}|${proto}`;
-        const consumptionPic = String(getVal(row, ['Consumption PIC','ConsumptionPIC','Cons PIC'])).trim();
-        const completeStatus = String(getVal(row, ['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status'])).trim().toLowerCase();
-        const taskKey = consumptionTaskKey(row);
-        const isPending = laserComplete && laserComplete !== '---'
-            && (!consumptionStart || consumptionStart === '---')
-            && consumptionPic !== 'N/A'
-            && completeStatus !== 'no'
-            && !doneTaskKeys.has(taskKey)
-            && !naHiddenIds.has(rowId)
-            && !naHiddenIds.has(jobKey(row))
-            && !naHiddenIds.has(styleProto)
-            && !naHiddenIds.has(String(row['__PowerAppsId__'] || ''));
-        if (!isPending || shownTaskKeys.has(taskKey)) return false;
-        shownTaskKeys.add(taskKey);
-        return true;
-    });
+}
+
+function getLaserDoneConsumptionRows(rows = allConsumptionRows) {
+    return (Array.isArray(rows) ? rows : []).filter(row =>
+        isAutoLaserConsumptionRow(row) && hasLaserConsumptionDate(getConsumptionCompleteDateRaw(row))
+    );
 }
 
         function renderLaserDashboard() {
@@ -3728,10 +3717,6 @@ function getLaserPendingConsumptionRows(rows) {
             });
             const total = laserMonthFiltered.length;
 
-            // Build composite key: Season+Style+Category+ProtoStage+GarmentQty
-            // Used to detect split jobs (2 rows for same job)
-            // jobKey is defined at module scope below — used here and in markLaserNA
-
             // Laser cut pending = request has a required date but operator has not completed laser cut.
             const laserCutPending = allLaserRows.filter(r => {
                 if (isPortalNoActionValue(getLaserCompleteDateRaw(r))) return false;
@@ -3742,14 +3727,8 @@ function getLaserPendingConsumptionRows(rows) {
                 return !completeDate || completeDate === '---';
             });
 
-            // Pending = Complete Date filled + tracked proto stage + consumption not started or completed.
-            const pending = getLaserPendingConsumptionRows(allLaserRows);
-
-            // Legacy Laser consumption is done only when its Consumption End Date is filled.
-            const done = allLaserRows.filter(r => {
-                const ce = convertExcelDate(getVal(r, ['Consumption Complete Date','ConsumptionCompleteDate','Cons End']));
-                return ce && ce !== '---';
-            });
+            const pending = getLaserPendingConsumptionRows(allConsumptionRows);
+            const done = getLaserDoneConsumptionRows(allConsumptionRows);
 
             const elTotal   = document.getElementById('ld-total');
             const elLaserPending = document.getElementById('ld-laser-pending');
@@ -3786,31 +3765,30 @@ function getLaserPendingConsumptionRows(rows) {
                     : '<tr><td colspan="7" class="p-6 text-center italic text-slate-400">No pending laser cut styles.</td></tr>';
             }
 
-            // Pending consumption table — sorted by complete date ascending (oldest first = most urgent)
+            // Pending auto-linked Consumption requests — oldest received first.
             const ptbody = document.getElementById('ld-pending-table');
             if (ptbody) {
                 ptbody.innerHTML = pending.length
                     ? pending
                         .slice()
                         .sort((a, b) => comparePortalDisplayDates(
-                            convertExcelDate(getLaserCompleteDateRaw(a)),
-                            convertExcelDate(getLaserCompleteDateRaw(b))
+                            convertExcelDate(getVal(a, ['Received Time m/d/yyyy','Received Time','ReceivedTime'])),
+                            convertExcelDate(getVal(b, ['Received Time m/d/yyyy','Received Time','ReceivedTime']))
                         ))
                         .map(r => {
                             const style   = getVal(r, ['Style Number','StyleNumber','Style']);
                             const proto   = getVal(r, ['Proto Stage','ProtoStage','Stage']);
                             const season  = getVal(r, ['Season']);
-                            const section = getVal(r, ['Section']);
+                            const requestBy = getVal(r, ['Request By','RequestBy','Requestor']) || 'Auto from Laser';
                             const pic     = getMAPic(r);
-                            const cd      = convertExcelDate(getLaserCompleteDateRaw(r));
-                            const rid = getVal(r, ['Id','ID','id']);
+                            const received = convertExcelDate(getVal(r, ['Received Time m/d/yyyy','Received Time','ReceivedTime']));
                             return `<tr class="border-b hover:bg-amber-50">
-                                <td class="p-2 font-bold text-blue-700 cursor-pointer truncate" onclick="drillDownLaser('${style.replace(/'/g,"\\'")}')" title="Click to find in Laser Tracking">${style}</td>
+                                <td class="p-2 font-bold text-blue-700 cursor-pointer truncate" onclick="drillDownConsumption('${style.replace(/'/g,"\\'")}')" title="Click to find in Consumption">${style}</td>
                                 <td class="p-2 font-semibold text-purple-700 truncate" title="${proto}">${proto}</td>
                                 <td class="p-2 truncate">${season}</td>
-                                <td class="p-2 truncate" title="${section}">${section}</td>
+                                <td class="p-2 truncate" title="${requestBy}">${requestBy}</td>
                                 <td class="p-2 font-medium truncate" title="${pic}">${pic}</td>
-                                <td class="p-2 text-emerald-600 font-bold whitespace-nowrap">${cd}</td>
+                                <td class="p-2 text-emerald-600 font-bold whitespace-nowrap">${received}</td>
                                 <td class="p-2"></td>
                             </tr>`;
                         }).join('')
@@ -3873,15 +3851,16 @@ function getLaserPendingConsumptionRows(rows) {
                 });
             }
 
-            const consumptionTrendFiltered = allLaserRows.filter(r => {
-                const startDate = rawToLocalDate(getVal(r, ['Consumption Start Date','ConsumptionStartDate','Cons Start']));
+            const consumptionTrendFiltered = allConsumptionRows.filter(r => {
+                if (!isAutoLaserConsumptionRow(r)) return false;
+                const startDate = rawToLocalDate(getVal(r, ['Start Date m/d/yyyy','Start Date','StartDate']));
                 if (!startDate) return false;
                 if (sharedMonthVal === 'ALL') return true;
                 return `${months[startDate.getMonth()]}-${startDate.getFullYear()}` === sharedMonthVal;
             });
             const consumptionDayCounts = {};
             consumptionTrendFiltered.forEach(r => {
-                const startDate = rawToLocalDate(getVal(r, ['Consumption Start Date','ConsumptionStartDate','Cons Start']));
+                const startDate = rawToLocalDate(getVal(r, ['Start Date m/d/yyyy','Start Date','StartDate']));
                 if (!startDate) return;
                 const dayKey = `${startDate.getMonth()+1}/${startDate.getDate()}/${startDate.getFullYear()}`;
                 consumptionDayCounts[dayKey] = (consumptionDayCounts[dayKey] || 0) + 1;
@@ -4274,28 +4253,6 @@ async function addLaserRow() {
         // Gavin quick-mark: OK = today's date as Consumption End, N/A = "N/A"
 
 
-        // Gavin quick-action: ✓ mark consumption complete (fills Cons Start+End+PIC with today)
-        // N/A: write N/A to Excel first, then hide locally after the save is confirmed.
-        // Stores hidden row IDs in a Set; cleared on page refresh
-        // Load N/A hidden IDs from localStorage so they survive page refresh
-        const naHiddenIds = new Set(JSON.parse(localStorage.getItem('ma_na_hidden') || '[]'));
-
-        // Module-scope composite key for split-job detection (Season excluded — same style can span seasons)
-const jobKey = r => [
-    getVal(r, ['Style Number','StyleNumber','Style']),
-    getVal(r, ['Category']),
-    getVal(r, ['Proto Stage','ProtoStage','Stage']),
-    getVal(r, ['Garment Quantity','GarmentQty','Garment Qty'])
-].map(v => String(v).trim().toLowerCase()).join('|');
-
-const consumptionTaskKey = r => [
-    getVal(r, ['Style Number','StyleNumber','Style']),
-    getVal(r, ['Category']),
-    getVal(r, ['Proto Stage','ProtoStage','Stage']),
-    getVal(r, ['Season']),
-    getVal(r, ['Garment Quantity','GarmentQty','Garment Qty'])
-].map(v => String(v ?? '').trim().toLowerCase()).join('|');
-
         // Laser completion creates at most one Consumption task per matching group.
         const laserConsumptionSyncing = new Set();
 
@@ -4383,8 +4340,10 @@ const consumptionTaskKey = r => [
 
         function getAutoLaserConsumptionIds(row) {
             const remark = laserConsumptionValue(getVal(row, ['Remark','Remarks']));
-            const current = remark.match(/Auto from Laser IDs?\s+([\d,\s]+)/i)?.[1]
-                ?.match(/\d+/g) || [];
+            const current = [
+                remark.match(/Auto from Laser\s*\/\s*Laser IDs?\s+([\d,\s]+)/i)?.[1],
+                remark.match(/Auto from Laser IDs?\s+([\d,\s]+)/i)?.[1]
+            ].filter(Boolean).flatMap(value => value.match(/\d+/g) || []);
             const legacy = remark.match(/Latest Laser ID\s+(\d+)/i)?.[1];
             return Array.from(new Set([...current, ...(legacy ? [legacy] : [])]));
         }
@@ -4499,7 +4458,7 @@ const consumptionTaskKey = r => [
                     season: group.season,
                     styleNumber: group.style,
                     jobNo: '',
-                    requestBy: '',
+                    requestBy: 'Auto from Laser',
                     protoStage: group.protoStage,
                     requestType: 'Consumption and Artwork',
                     requiredDate,
@@ -4548,149 +4507,6 @@ const consumptionTaskKey = r => [
             }
             if (targets.length) schedulePortalWriteRefresh(refreshConsumptionData);
             return targets.length;
-        }
-
-        function saveNaHidden() {
-            localStorage.setItem('ma_na_hidden', JSON.stringify(Array.from(naHiddenIds)));
-        }
-
-        async function markLaserNA(rid, event) {
-            const btn = event?.target;
-            if (btn) { btn.innerText = '...'; btn.disabled = true; }
-            const ridStr = String(rid);
-            const ridInt = String(parseInt(rid) || rid);
-
-            // Find row data to send full payload to Excel
-            const row = allLaserRows.find(r => {
-                const rowId = String(getVal(r, ['Id','ID','id']));
-                return rowId === ridStr || rowId === ridInt ||
-                       String(r['__PowerAppsId__'] || '') === ridStr;
-            });
-
-            // Write 'N/A' to Consumption PIC in Excel — persists across all devices
-            if (row) {
-                const payload = withLaserStartDateFields({
-                    recordID:       ridStr,
-                    receivedTime:   formatPortalDatePayloadFromRaw(getVal(row, ['Received Time','ReceivedTime','Received'])),
-                    season:         getVal(row, ['Season']),
-                    styleNumber:    getVal(row, ['Style Number','StyleNumber','Style']),
-                    section:        getVal(row, ['Section']),
-                    category:       getVal(row, ['Category']),
-                    protoStage:     getVal(row, ['Proto Stage','ProtoStage','Stage']),
-                    garmentQty:     getVal(row, ['Garment Quantity','GarmentQty','Garment Qty']),
-                    laserParts:     getVal(row, ['Laser Part Count','LaserPartCount','Laser Parts']),
-                    ironParts:      getVal(row, ['Ironing Part Count','IroningPartCount','Iron Parts']),
-                    trimParts:      getVal(row, ['Laser Trim Part Count','LaserTrimPartCount','Trim Parts']),
-                    completeDate:   formatPortalDatePayloadFromRaw(getVal(row, ['Complete Date','CompleteDate'])),
-                    requiredDate:   formatPortalDatePayloadFromRaw(getLaserRequiredDateRaw(row), { dateOnly: true }),
-                    'Required Date': formatPortalDatePayloadFromRaw(getLaserRequiredDateRaw(row), { dateOnly: true }),
-                    maPic:          getMAPic(row),
-                    consStart:      '',
-                    consEnd:        '',
-                    consumptionPic: 'N/A',
-                    remark:         getVal(row, ['Remark','Remarks'])
-                }, formatPortalDatePayloadFromRaw(getLaserStartDateRaw(row)));
-                try {
-                    const res = await postPortalJson(laserUpdateURL, payload);
-                    await readPortalWriteResult(res, 'Laser N/A update');
-                    applyLaserSavePatch(ridStr, payload);
-                } catch(e) {
-                    if (btn) { btn.innerText = 'N/A'; btn.disabled = false; }
-                    alert(e.message || 'Laser N/A update failed. Data was not updated.');
-                    return;
-                }
-            }
-
-            // Also store in localStorage as immediate local cache
-            naHiddenIds.add(ridStr);
-            naHiddenIds.add(ridInt);
-            if (row) {
-                naHiddenIds.add(jobKey(row));
-                if (row['__PowerAppsId__']) naHiddenIds.add(String(row['__PowerAppsId__']));
-                const style = getVal(row, ['Style Number','StyleNumber','Style']);
-                const proto = getVal(row, ['Proto Stage','ProtoStage','Stage']);
-                if (style && style !== '---') naHiddenIds.add(`${style}|${proto}`);
-            }
-            saveNaHidden();
-
-            // Refresh from Excel after 3s so all devices see the update
-            setTimeout(() => refreshLaserData(true), 3000);
-            if (btn) { btn.innerText = 'N/A'; btn.disabled = false; }
-            renderLaserDashboard();
-            renderLaserSLA();
-        }
-
-
-        // Gavin quick-action: ✓ mark consumption complete
-        async function quickConsDone(rid, event) {
-            const btn = event.target; btn.innerText = '...'; btn.disabled = true;
-            const today = nowAsLaserDate().split(' ')[0];
-            const row = allLaserRows.find(r => String(getVal(r, ['Id','ID','id'])) === String(rid));
-            if (!row) { btn.innerText = '✓'; btn.disabled = false; return; }
-            const payload = withLaserStartDateFields({
-                recordID: rid,
-                receivedTime:   formatPortalDatePayloadFromRaw(getVal(row, ['Received Time','ReceivedTime','Received'])),
-                season:         getVal(row, ['Season']),
-                styleNumber:    getVal(row, ['Style Number','StyleNumber','Style']),
-                section:        getVal(row, ['Section']),
-                category:       getVal(row, ['Category']),
-                protoStage:     getVal(row, ['Proto Stage','ProtoStage','Stage']),
-                garmentQty:     getVal(row, ['Garment Quantity','GarmentQty','Garment Qty']),
-                laserParts:     getVal(row, ['Laser Part Count','LaserPartCount','Laser Parts']),
-                ironParts:      getVal(row, ['Ironing Part Count','IroningPartCount','Iron Parts']),
-                trimParts:      getVal(row, ['Laser Trim Part Count','LaserTrimPartCount','Trim Parts']),
-                completeDate:   formatPortalDatePayloadFromRaw(getVal(row, ['Complete Date','CompleteDate'])),
-                requiredDate:   formatPortalDatePayloadFromRaw(getLaserRequiredDateRaw(row), { dateOnly: true }),
-                'Required Date': formatPortalDatePayloadFromRaw(getLaserRequiredDateRaw(row), { dateOnly: true }),
-                maPic:          getMAPic(row),
-                consStart:      today,
-                consEnd:        today,
-                consumptionPic: currentUser,
-                remark:         getVal(row, ['Remark','Remarks'])
-            }, formatPortalDatePayloadFromRaw(getLaserStartDateRaw(row)));
-            try {
-                const res = await postPortalJson(laserUpdateURL, payload);
-                await readPortalWriteResult(res, 'Consumption quick update');
-                applyLaserSavePatch(rid, payload);
-                btn.innerText = '✓ Done';
-                setTimeout(() => { btn.innerText = '✓'; btn.disabled = false; refreshLaserData(true); }, 4000);
-            } catch(e) { btn.innerText = '✓'; btn.disabled = false; alert(e.message || 'Save failed. Data was not updated.'); }
-        }
-
-        // Gavin quick-action: ✗ no consumption required — fills Cons End with today
-        async function quickConsNone(rid, event) {
-            const btn = event.target; btn.innerText = '...'; btn.disabled = true;
-            const today = nowAsLaserDate().split(' ')[0];
-            const row = allLaserRows.find(r => String(getVal(r, ['Id','ID','id'])) === String(rid));
-            if (!row) { btn.innerText = '✗'; btn.disabled = false; return; }
-            const payload = withLaserStartDateFields({
-                recordID: rid,
-                receivedTime:   formatPortalDatePayloadFromRaw(getVal(row, ['Received Time','ReceivedTime','Received'])),
-                season:         getVal(row, ['Season']),
-                styleNumber:    getVal(row, ['Style Number','StyleNumber','Style']),
-                section:        getVal(row, ['Section']),
-                category:       getVal(row, ['Category']),
-                protoStage:     getVal(row, ['Proto Stage','ProtoStage','Stage']),
-                garmentQty:     getVal(row, ['Garment Quantity','GarmentQty','Garment Qty']),
-                laserParts:     getVal(row, ['Laser Part Count','LaserPartCount','Laser Parts']),
-                ironParts:      getVal(row, ['Ironing Part Count','IroningPartCount','Iron Parts']),
-                trimParts:      getVal(row, ['Laser Trim Part Count','LaserTrimPartCount','Trim Parts']),
-                completeDate:   formatPortalDatePayloadFromRaw(getVal(row, ['Complete Date','CompleteDate'])),
-                requiredDate:   formatPortalDatePayloadFromRaw(getLaserRequiredDateRaw(row), { dateOnly: true }),
-                'Required Date': formatPortalDatePayloadFromRaw(getLaserRequiredDateRaw(row), { dateOnly: true }),
-                maPic:          getMAPic(row),
-                consStart:      '',
-                consEnd:        today,
-                consumptionPic: currentUser,
-                remark:         getVal(row, ['Remark','Remarks'])
-            }, formatPortalDatePayloadFromRaw(getLaserStartDateRaw(row)));
-            try {
-                const res = await postPortalJson(laserUpdateURL, payload);
-                await readPortalWriteResult(res, 'Consumption quick update');
-                applyLaserSavePatch(rid, payload);
-                btn.innerText = '✗ Done';
-                setTimeout(() => { btn.innerText = '✗'; btn.disabled = false; refreshLaserData(true); }, 4000);
-            } catch(e) { btn.innerText = '✗'; btn.disabled = false; alert(e.message || 'Save failed. Data was not updated.'); }
         }
 
         async function saveLaserRow(rid, event) {
@@ -5706,20 +5522,18 @@ function taskHubNoAction(value) {
                 });
             });
 
-            getLaserPendingConsumptionRows(laserRows).forEach(row => {
+            getLaserPendingConsumptionRows(allConsumptionRows).forEach(row => {
                 const style = taskHubFirst(getVal(row, ['Style Number', 'StyleNumber', 'Style']), row.styleNumber, row.style);
                 if (!style) return;
-                const complete = getLaserCompleteDateRaw(row);
-                const required = taskHubDatePlusWorkingDays(complete, 2);
+                const required = getVal(row, ['Required Date','RequiredDate','Required Date m/d/yyyy']);
                 const overdue = taskHubOverdue(required);
-                const consumptionPic = taskHubFirst(getVal(row, ['Consumption PIC', 'ConsumptionPIC', 'Cons PIC']));
                 addPendingTask(items, {
                     source: 'Laser Consumption',
-                    tab: 'laser',
+                    tab: 'consumption',
                     row,
-                    pic: taskHubPic(consumptionPic || getMAPic(row)),
+                    pic: taskHubPic(getMAPic(row)),
                     title: style,
-                    detail: taskHubSubtitle(['Pending Consumption', getVal(row, ['Proto Stage', 'Stage']), getVal(row, ['Season']), getVal(row, ['Section'])]),
+                    detail: taskHubSubtitle(['Pending Consumption', getVal(row, ['Proto Stage', 'Stage']), getVal(row, ['Season']), 'Auto from Laser']),
                     priority: overdue ? 0 : 3,
                     status: overdue ? 'Delay' : 'Pending Consumption',
                     dateLabel: taskHubShortDate(required),
@@ -9287,9 +9101,6 @@ function renderPendingTaskHub() {
                     modeBtn.title = isViewMode ? 'Switch to Edit Mode' : 'Switch to View Mode';
                 }
                 if (modeLabel) modeLabel.innerText = isViewMode ? 'VIEW MODE' : 'EDIT MODE';
-                // Show Reset N/A button only for Gavin
-                const naBtn = document.getElementById('clearNA-btn');
-                if (naBtn) naBtn.classList.toggle('hidden', !isPortalAdmin() || isViewMode);
                 const quiltingSyncBtn = document.getElementById('manualQuiltingSyncBtn');
                 if (quiltingSyncBtn) quiltingSyncBtn.classList.toggle('hidden', !canManualSyncQuiltingDetails() || isViewMode);
                 const taskScope = document.getElementById('taskHubSearchScope');
@@ -9298,8 +9109,6 @@ function renderPendingTaskHub() {
                 if (taskSearch) taskSearch.placeholder = isPortalAdmin() && taskScope?.value === 'ALL_RECORDS' ? 'Search style or job across all records...' : 'Search tasks...';
             } else {
                 lv.classList.remove('hidden'); av.classList.add('hidden');
-                const naBtn = document.getElementById('clearNA-btn');
-                if (naBtn) naBtn.classList.add('hidden');
                 const quiltingSyncBtn = document.getElementById('manualQuiltingSyncBtn');
                 if (quiltingSyncBtn) quiltingSyncBtn.classList.add('hidden');
                 const taskScope = document.getElementById('taskHubSearchScope');
@@ -9314,15 +9123,6 @@ function renderPendingTaskHub() {
             updateDailyReportButton();
             const dashboardPage = document.getElementById('content-dashboard');
             if (dashboardPage && !dashboardPage.classList.contains('hidden')) schedulePendingTaskHubRender();
-        }
-
-        function clearAllNA() {
-            if (!confirm('Reset all N/A hidden styles? They will reappear in the pending list.')) return;
-            naHiddenIds.clear();
-            saveNaHidden();
-            renderLaserDashboard();
-            const btn = document.getElementById('clearNA-btn');
-            if (btn) { btn.innerText = 'Reset ✓'; setTimeout(() => btn.innerText = 'Reset N/A', 2000); }
         }
 
         Object.keys(machineSpecs).forEach(m => { 
@@ -10651,7 +10451,7 @@ function renderPendingTaskHub() {
                 season: sanitizeTemplateValue(templateRow?.season),
                 styleNumber: sanitizeTemplateValue(templateRow?.style),
                 jobNo: sanitizeTemplateValue(templateRow?.jobNo),
-                requestBy: '',
+                requestBy: 'Auto from Template',
                 protoStage: sanitizeTemplateValue(templateRow?.protoStage),
                 requestType: 'Quilting Details',
                 requiredDate: '',
@@ -10664,7 +10464,9 @@ function renderPendingTaskHub() {
 
         function getAutoQuiltingTemplateId(consumptionRow) {
             const remark = String(getVal(consumptionRow, ['Remark', 'Remarks']) || '');
-            return remark.match(/Auto from Template ID\s+(\d+)/i)?.[1] || '';
+            return remark.match(/Auto from Template\s*\/\s*Template ID\s+(\d+)/i)?.[1]
+                || remark.match(/Auto from Template ID\s+(\d+)/i)?.[1]
+                || '';
         }
 
         function buildQuiltingSeasonBackfillPayload(row, season) {
@@ -10870,6 +10672,7 @@ function renderPendingTaskHub() {
                 }
                 populateConsumptionMonthFilter();
                 renderConsumptionDashboard();
+                renderLaserDashboard();
                     if (st) { st.innerText = 'LIVE: ' + new Date().toLocaleTimeString(); st.classList.remove('sync-active'); }
             } catch(e) {
                 let restoredFromSnapshot = false;
@@ -10883,6 +10686,7 @@ function renderPendingTaskHub() {
                             if (canPortalAutoRender('consumption')) renderConsumptionTable();
                             populateConsumptionMonthFilter();
                             renderConsumptionDashboard();
+                            renderLaserDashboard();
                         }
                     } catch (snapshotError) {
                         console.warn('Consumption snapshot fallback skipped:', snapshotError.message);
