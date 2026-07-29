@@ -3032,9 +3032,23 @@
             return getVal(row, ['Complete Date\nm/d/yyyy','Complete Date m/d/yyyy','Complete Date','CompleteDate']);
         }
 
-        function isPortalNoActionValue(value) {
-            return String(value ?? '').trim() === '-';
-        }
+function isPortalNoActionValue(value) {
+    return String(value ?? '').trim() === '-';
+}
+
+function hasLaserConsumptionDate(value) {
+    const text = String(value ?? '').trim();
+    return !!text && text !== '---' && !isPortalNoActionValue(text);
+}
+
+function resolveLaserConsumptionCompleteStatus(protoStage, consStart, consEnd, manualStatus = '', existingStatus = '') {
+    if (hasLaserConsumptionDate(consStart) && hasLaserConsumptionDate(consEnd)) return 'Yes';
+    const manual = String(manualStatus ?? '').trim();
+    if (manual) return manual;
+    const existing = String(existingStatus ?? '').trim();
+    if (existing) return existing;
+    return String(protoStage ?? '').trim().toUpperCase() === 'MK' ? 'No' : '';
+}
 
         function hasLaserCompleteDate(row) {
             const raw = getLaserCompleteDateRaw(row);
@@ -3664,34 +3678,39 @@
         }
         let laserTrendChart = null, laserConsumptionTrendChart = null;
 
-        function getLaserPendingConsumptionRows(rows) {
-            const sourceRows = Array.isArray(rows) ? rows : [];
-            const doneJobKeys = new Set();
-            sourceRows.forEach(row => {
-                const complete = getVal(row, ['Consumption Complete Date','ConsumptionCompleteDate','Cons End','ConsEnd','Consumption End']);
-                if (complete && complete !== '---' && String(complete).trim() !== '') doneJobKeys.add(jobKey(row));
-            });
-            return sourceRows.filter(row => {
-                if (isPortalNoActionValue(getLaserCompleteDateRaw(row))) return false;
-                const laserComplete = convertExcelDate(getLaserCompleteDateRaw(row));
+function getLaserPendingConsumptionRows(rows) {
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    const doneTaskKeys = new Set();
+    sourceRows.forEach(row => {
+        const complete = getVal(row, ['Consumption Complete Date','ConsumptionCompleteDate','Cons End','ConsEnd','Consumption End']);
+        if (hasLaserConsumptionDate(complete)) doneTaskKeys.add(consumptionTaskKey(row));
+    });
+    const shownTaskKeys = new Set();
+    return sourceRows.filter(row => {
+        if (isPortalNoActionValue(getLaserCompleteDateRaw(row))) return false;
+        const laserComplete = convertExcelDate(getLaserCompleteDateRaw(row));
                 const consumptionStart = convertExcelDate(getVal(row, ['Consumption Start Date','ConsumptionStartDate','Cons Start']));
                 const proto = getVal(row, ['Proto Stage','ProtoStage','Stage']);
                 const rowId = String(getVal(row, ['Id','ID','id']));
-                const styleProto = `${getVal(row,['Style Number','StyleNumber','Style'])}|${proto}`;
-                const consumptionPic = String(getVal(row, ['Consumption PIC','ConsumptionPIC','Cons PIC'])).trim();
-                const completeStatus = String(getVal(row, ['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status'])).trim().toLowerCase();
-                return laserComplete && laserComplete !== '---'
-                    && (!consumptionStart || consumptionStart === '---')
-                    && consumptionPic !== 'N/A'
-                    && completeStatus !== 'yes'
-                    && completeStatus !== 'no'
-                    && !doneJobKeys.has(jobKey(row))
-                    && !naHiddenIds.has(rowId)
-                    && !naHiddenIds.has(jobKey(row))
-                    && !naHiddenIds.has(styleProto)
-                    && !naHiddenIds.has(String(row['__PowerAppsId__'] || ''));
-            });
-        }
+        const styleProto = `${getVal(row,['Style Number','StyleNumber','Style'])}|${proto}`;
+        const consumptionPic = String(getVal(row, ['Consumption PIC','ConsumptionPIC','Cons PIC'])).trim();
+        const completeStatus = String(getVal(row, ['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status'])).trim().toLowerCase();
+        const taskKey = consumptionTaskKey(row);
+        const isPending = laserComplete && laserComplete !== '---'
+            && (!consumptionStart || consumptionStart === '---')
+            && consumptionPic !== 'N/A'
+            && completeStatus !== 'yes'
+            && completeStatus !== 'no'
+            && !doneTaskKeys.has(taskKey)
+            && !naHiddenIds.has(rowId)
+            && !naHiddenIds.has(jobKey(row))
+            && !naHiddenIds.has(styleProto)
+            && !naHiddenIds.has(String(row['__PowerAppsId__'] || ''));
+        if (!isPending || shownTaskKeys.has(taskKey)) return false;
+        shownTaskKeys.add(taskKey);
+        return true;
+    });
+}
 
         function renderLaserDashboard() {
             if (!allLaserRows.length) {
@@ -4247,31 +4266,38 @@
             if (el) el.innerText = currentUser || 'Not logged in';
         }
 
-        async function addLaserRow() {
-            if (!currentUser) return alert('Please login first.');
-            if (!portalEditingEnabled()) return alert('Switch to Edit Mode to add a row.');
-            const receivedTime = document.getElementById('l_receivedTime').value.trim() || nowAsLaserDate();
-            const startDate = receivedTime;
-            const payload = withLaserStartDateFields({
-                receivedTime:  toExcelDateFormat(receivedTime),
-                season:        document.getElementById('l_season').value.trim(),
-                styleNumber:   document.getElementById('l_styleNumber').value.trim(),
-                section:       document.getElementById('l_section').value,
-                category:      document.getElementById('l_category').value.trim(),
-                protoStage:    document.getElementById('l_protoStage').value.trim(),
-                garmentQty:    document.getElementById('l_garmentQty').value || '0',
-                laserParts:    document.getElementById('l_laserParts').value || '0',
-                ironParts:     document.getElementById('l_ironParts').value || '0',
-                trimParts:     document.getElementById('l_trimParts').value || '0',
-                completeDate:  toExcelDateFormat(document.getElementById('l_completeDate').value.trim()),
-                requiredDate:  '',
-                'Required Date': '',
-                consStart:     toExcelDateFormat(document.getElementById('l_consStart').value.trim()),
-                consEnd:       toExcelDateFormat(document.getElementById('l_consEnd').value.trim()),
-                maPic:         currentUser,
-                consumptionPic: '',
-                remark:        document.getElementById('l_remark').value.trim()
-            }, toExcelDateFormat(startDate));
+async function addLaserRow() {
+    if (!currentUser) return alert('Please login first.');
+    if (!portalEditingEnabled()) return alert('Switch to Edit Mode to add a row.');
+    const receivedTime = document.getElementById('l_receivedTime').value.trim() || nowAsLaserDate();
+    const startDate = receivedTime;
+    const protoStage = document.getElementById('l_protoStage').value.trim();
+    const consStart = toExcelDateFormat(document.getElementById('l_consStart').value.trim());
+    const consEnd = toExcelDateFormat(document.getElementById('l_consEnd').value.trim());
+    const consumptionCompleteStatus = resolveLaserConsumptionCompleteStatus(protoStage, consStart, consEnd);
+    const payload = withLaserStartDateFields({
+        receivedTime:  toExcelDateFormat(receivedTime),
+        season:        document.getElementById('l_season').value.trim(),
+        styleNumber:   document.getElementById('l_styleNumber').value.trim(),
+        section:       document.getElementById('l_section').value,
+        category:      document.getElementById('l_category').value.trim(),
+        protoStage,
+        garmentQty:    document.getElementById('l_garmentQty').value || '0',
+        laserParts:    document.getElementById('l_laserParts').value || '0',
+        ironParts:     document.getElementById('l_ironParts').value || '0',
+        trimParts:     document.getElementById('l_trimParts').value || '0',
+        completeDate:  toExcelDateFormat(document.getElementById('l_completeDate').value.trim()),
+        requiredDate:  '',
+        'Required Date': '',
+        consStart,
+        consEnd,
+        maPic:         currentUser,
+        consumptionPic: '',
+        consumptionCompleteStatus,
+        'consumption complete status': consumptionCompleteStatus,
+        'Consumption Complete Status': consumptionCompleteStatus,
+        remark:        document.getElementById('l_remark').value.trim()
+    }, toExcelDateFormat(startDate));
             if (!payload.styleNumber) return alert('Style Number is required.');
             const btn = document.getElementById('laserAddBtn');
             btn.innerText = 'Saving...'; btn.disabled = true;
@@ -4304,12 +4330,20 @@
         const naHiddenIds = new Set(JSON.parse(localStorage.getItem('ma_na_hidden') || '[]'));
 
         // Module-scope composite key for split-job detection (Season excluded — same style can span seasons)
-        const jobKey = r => [
-            getVal(r, ['Style Number','StyleNumber','Style']),
-            getVal(r, ['Category']),
-            getVal(r, ['Proto Stage','ProtoStage','Stage']),
-            getVal(r, ['Garment Quantity','GarmentQty','Garment Qty'])
-        ].map(v => String(v).trim().toLowerCase()).join('|');
+const jobKey = r => [
+    getVal(r, ['Style Number','StyleNumber','Style']),
+    getVal(r, ['Category']),
+    getVal(r, ['Proto Stage','ProtoStage','Stage']),
+    getVal(r, ['Garment Quantity','GarmentQty','Garment Qty'])
+].map(v => String(v).trim().toLowerCase()).join('|');
+
+const consumptionTaskKey = r => [
+    getVal(r, ['Style Number','StyleNumber','Style']),
+    getVal(r, ['Category']),
+    getVal(r, ['Proto Stage','ProtoStage','Stage']),
+    getVal(r, ['Season']),
+    getVal(r, ['Garment Quantity','GarmentQty','Garment Qty'])
+].map(v => String(v ?? '').trim().toLowerCase()).join('|');
 
         function saveNaHidden() {
             localStorage.setItem('ma_na_hidden', JSON.stringify(Array.from(naHiddenIds)));
@@ -4480,18 +4514,27 @@
                 alert('Invalid date format. Use d/m/yyyy, d/m/yyyy hh:mm, or - for no action.');
                 btn.innerText = 'SAVE'; btn.disabled = false; return;
             }
-            const consPicRaw = fieldValue('consPic', ['Consumption PIC','ConsumptionPIC','Cons PIC']);
-            const consPicToSave = (consStartNorm || consEndNorm) && (!consPicRaw || consPicRaw === '---')
-                ? currentUser
-                : consPicRaw;
-            const payload = withLaserStartDateFields({
+    const consPicRaw = fieldValue('consPic', ['Consumption PIC','ConsumptionPIC','Cons PIC']);
+    const consPicToSave = (consStartNorm || consEndNorm) && (!consPicRaw || consPicRaw === '---')
+        ? currentUser
+        : consPicRaw;
+    const protoStageToSave = fieldValue('proto', ['Proto Stage','ProtoStage','Stage']);
+    const manualConsumptionStatus = document.getElementById(`le-consStatus-${rid}`)?.value || '';
+    const consumptionCompleteStatus = resolveLaserConsumptionCompleteStatus(
+        protoStageToSave,
+        consStartNorm,
+        consEndNorm,
+        manualConsumptionStatus,
+        existing(['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status'])
+    );
+    const payload = withLaserStartDateFields({
                 recordID:       rid,
                 receivedTime:   receivedNorm,
                 season:         fieldValue('season', ['Season']),
                 styleNumber:    fieldValue('style', ['Style Number','StyleNumber','Style']),
                 section:        sectionEl ? sectionEl.value : existing(['Section']),
                 category:       fieldValue('category', ['Category']),
-                protoStage:     fieldValue('proto', ['Proto Stage','ProtoStage','Stage']),
+        protoStage:     protoStageToSave,
                 garmentQty:     fieldValue('garmentQty', ['Garment Quantity','GarmentQty','Garment Qty']),
                 laserParts:     fieldValue('laserParts', ['Laser Part Count','LaserPartCount','Laser Parts']),
                 ironParts:      fieldValue('ironParts', ['Ironing Part Count','IroningPartCount','Iron Parts']),
@@ -4504,9 +4547,9 @@
                 consEnd:        consEndNorm,
                 consumptionPic: consPicToSave,
                 'Consumption PIC': consPicToSave,
-                consumptionCompleteStatus: document.getElementById(`le-consStatus-${rid}`)?.value || existing(['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status']),
-                'consumption complete status': document.getElementById(`le-consStatus-${rid}`)?.value || existing(['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status']),
-                'Consumption Complete Status': document.getElementById(`le-consStatus-${rid}`)?.value || existing(['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status']),
+        consumptionCompleteStatus,
+        'consumption complete status': consumptionCompleteStatus,
+        'Consumption Complete Status': consumptionCompleteStatus,
                 remark:         fieldValue('remark', ['Remark','Remarks'])
             }, startNorm);
             try {
@@ -4548,6 +4591,14 @@
             const consEndNorm = preparePortalDateFieldPayload(consEnd, getVal(row, ['Consumption Complete Date','ConsumptionCompleteDate','Cons End']), { preferDayFirst: true, allowNoAction: true });
             if (!consStartNorm) { alert('Please fill Consumption Start Date.'); btn.innerText = 'SAVE'; btn.disabled = false; return; }
             if ([consStartNorm, consEndNorm].some(v => v === null)) { alert('Invalid date format. Use d/m/yyyy, d/m/yyyy hh:mm, or - for no action.'); btn.innerText = 'SAVE'; btn.disabled = false; return; }
+            const protoStage = getVal(row, ['Proto Stage','ProtoStage','Stage']);
+            const consumptionCompleteStatus = resolveLaserConsumptionCompleteStatus(
+                protoStage,
+                consStartNorm,
+                consEndNorm,
+                '',
+                getVal(row, ['Consumption Complete Status','ConsumptionCompleteStatus','Cons Complete Status'])
+            );
             const payload = withLaserStartDateFields({
                 recordID:       rid,
                 receivedTime:   formatPortalDatePayloadFromRaw(getVal(row, ['Received Time','ReceivedTime','Received'])),
@@ -4555,7 +4606,7 @@
                 styleNumber:    getVal(row, ['Style Number','StyleNumber','Style']),
                 section:        getVal(row, ['Section']),
                 category:       getVal(row, ['Category']),
-                protoStage:     getVal(row, ['Proto Stage','ProtoStage','Stage']),
+                protoStage,
                 garmentQty:     getVal(row, ['Garment Quantity','GarmentQty','Garment Qty']),
                 laserParts:     getVal(row, ['Laser Part Count','LaserPartCount','Laser Parts']),
                 ironParts:      getVal(row, ['Ironing Part Count','IroningPartCount','Iron Parts']),
@@ -4568,6 +4619,9 @@
                 consEnd:        consEndNorm,
                 consumptionPic: currentUser,
                 'Consumption PIC': currentUser,
+                consumptionCompleteStatus,
+                'consumption complete status': consumptionCompleteStatus,
+                'Consumption Complete Status': consumptionCompleteStatus,
                 remark:         document.getElementById(`le-remark-${rid}`)?.value.trim() || getVal(row, ['Remark','Remarks'])
             }, formatPortalDatePayloadFromRaw(getLaserStartDateRaw(row)));
             try {
