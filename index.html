@@ -4552,6 +4552,12 @@ async function addLaserRow() {
             return 'not-found';
         }
 
+        function canDeleteAutoLaserConsumptionRow(row) {
+            const start = String(getVal(row, ['Start Date m/d/yyyy','Start Date','StartDate']) || '').trim();
+            const complete = String(getConsumptionCompleteDateRaw(row) || '').trim();
+            return (!start || start === '---') && (!complete || complete === '---');
+        }
+
         async function deleteAutoLaserConsumptionRowsForGroup(row) {
             if (!row || !hasLaserConsumptionGroup(row)) return 0;
             const groupKey = laserConsumptionGroupKey(row);
@@ -4563,9 +4569,13 @@ async function addLaserRow() {
             );
             if (completedGroupRows.some(laserRequiresConsumption)) return 0;
             const sourceIds = new Set(completedGroupRows.map(getPortalRowId));
-            const targets = (allConsumptionRows || []).filter(consumptionRow =>
+            const linkedTargets = (allConsumptionRows || []).filter(consumptionRow =>
                 getAutoLaserConsumptionIds(consumptionRow).some(id => sourceIds.has(id))
             );
+            const targets = linkedTargets.filter(canDeleteAutoLaserConsumptionRow);
+            if (linkedTargets.length > targets.length) {
+                console.info('Linked Consumption row preserved because its Start or Complete Date is already filled.');
+            }
             for (const target of targets) {
                 const id = getPortalRowId(target);
                 if (!id) continue;
