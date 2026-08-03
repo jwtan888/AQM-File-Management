@@ -957,6 +957,10 @@
                     <div class="h-[300px]"><canvas id="templateValueChart"></canvas></div>
                 </div>
             </div>
+            <div class="bg-white p-6 rounded-xl border shadow-sm mb-6">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Template Request Type</h3>
+                <div class="h-[300px]"><canvas id="templateRequestTypeChart"></canvas></div>
+            </div>
             <div class="bg-white p-6 rounded-xl border shadow-sm">
                 <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Pending Template Styles By PIC</h3>
                 <div class="overflow-x-auto rounded-lg border">
@@ -2157,7 +2161,16 @@
         let portalViewMode = sessionStorage.getItem('ma_portal_view_mode') === 'view';
         let editingSettingRowId = null;
         let templateDataLoaded = false, consumptionDataLoaded = false, quiltingConsumptionSyncing = false;
-        let sectionChart = null, volumeChart = null, templateValueChart = null;
+        let sectionChart = null, volumeChart = null, templateRequestTypeChart = null, templateValueChart = null;
+        const templateRequestTypeChartOptions = [
+            'Pocket Construction',
+            'Attach Construction',
+            'Quilting',
+            'Positioning & Marking',
+            'Tacking Construction',
+            'Embellishment Stitch',
+            'Tools'
+        ];
         function isPortalAdmin(user = currentUser) {
             return user === 'Gavin' || user === 'Joe';
         }
@@ -3508,6 +3521,52 @@ function resolveLaserConsumptionRequireStatus(protoStage, manualStatus = '', exi
                     }
                 }
             });
+
+            const requestTypeAllowed = new Set(templateRequestTypeChartOptions.map(type => type.toLowerCase()));
+            const requestTypeStats = {};
+            filteredByMonth.forEach(t => {
+                const type = sanitizeTemplateValue(t.templateType);
+                if (!requestTypeAllowed.has(type.toLowerCase())) return;
+                requestTypeStats[type] = (requestTypeStats[type] || 0) + 1;
+            });
+            const requestTypeRows = Object.entries(requestTypeStats).sort((a, b) => b[1] - a[1]);
+            const requestTypeTotal = requestTypeRows.reduce((sum, row) => sum + row[1], 0);
+            if (templateRequestTypeChart) templateRequestTypeChart.destroy();
+            const requestTypeCtx = document.getElementById('templateRequestTypeChart');
+            if (requestTypeCtx) {
+                templateRequestTypeChart = new Chart(requestTypeCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: requestTypeRows.map(row => row[0]),
+                        datasets: [{
+                            ...PORTAL_BAR_STYLE,
+                            label: 'Template Requests',
+                            data: requestTypeRows.map(row => row[1]),
+                            backgroundColor: '#3b82f6',
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => {
+                                        const value = Number(ctx.raw) || 0;
+                                        const pct = requestTypeTotal ? Math.round(value / requestTypeTotal * 100) : 0;
+                                        return `${value} requests (${pct}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { beginAtZero: true, ticks: { precision: 0 } }
+                        }
+                    }
+                });
+            }
             // Volume Trends — group COMPLETED jobs by their Complete Date (daily within selected month)
             const volStats = {};
             filteredByMonth.forEach(t => {
@@ -4245,7 +4304,13 @@ async function addLaserRow() {
                 });
                 document.getElementById('l_section').value = '';
                 if (hasLaserConsumptionDate(payload.completeDate) && consumptionCompleteStatus === 'Yes') {
-                    void syncNewLaserCompletionAfterAdd(payload, existingLaserIds, addedId);
+                    const queuedRow = buildLaserLocalPatchFromPayload({ ...payload, recordID: addedId });
+                    const groupKey = queueLaserConsumptionRetry(queuedRow, {
+                        rid: addedId,
+                        existingIds: Array.from(existingLaserIds)
+                    });
+                    void syncNewLaserCompletionAfterAdd(payload, existingLaserIds, addedId)
+                        .then(result => recordLaserConsumptionRetryResult(groupKey, result));
                 } else {
                     refreshLaserData();
                 }
@@ -4262,6 +4327,75 @@ async function addLaserRow() {
         // Laser completion creates at most one Consumption task per matching group.
         const laserConsumptionSyncing = new Set();
         const laserConsumptionSuppressedGroups = new Set();
+        const LASER_CONSUMPTION_RETRY_KEY = 'ma_laser_consumption_retry_v1';
+        let laserConsumptionRetryRunning = false;
+        let laserConsumptionRetryTimer = null;
+
+        function readLaserConsumptionRetryQueue() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(LASER_CONSUMPTION_RETRY_KEY) || '{}');
+                return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function writeLaserConsumptionRetryQueue(queue) {
+            try {
+                if (Object.keys(queue || {}).length) {
+                    localStorage.setItem(LASER_CONSUMPTION_RETRY_KEY, JSON.stringify(queue));
+                } else {
+                    localStorage.removeItem(LASER_CONSUMPTION_RETRY_KEY);
+                }
+            } catch (error) {}
+        }
+
+        function queueLaserConsumptionRetry(row, options = {}) {
+            if (!row || !hasLaserConsumptionGroup(row)) return '';
+            const groupKey = laserConsumptionGroupKey(row);
+            const queue = readLaserConsumptionRetryQueue();
+            const existing = queue[groupKey] || {};
+            queue[groupKey] = {
+                groupKey,
+                rid: laserConsumptionValue(options.rid || existing.rid || getPortalRowId(row)),
+                existingIds: Array.from(new Set([
+                    ...(Array.isArray(existing.existingIds) ? existing.existingIds : []),
+                    ...(Array.isArray(options.existingIds) ? options.existingIds : [])
+                ].map(String))),
+                queuedAt: existing.queuedAt || Date.now(),
+                lastAttemptAt: existing.lastAttemptAt || 0,
+                awaitingConfirmation: !!existing.awaitingConfirmation
+            };
+            writeLaserConsumptionRetryQueue(queue);
+            return groupKey;
+        }
+
+        function removeLaserConsumptionRetry(groupKey) {
+            if (!groupKey) return;
+            const queue = readLaserConsumptionRetryQueue();
+            if (!queue[groupKey]) return;
+            delete queue[groupKey];
+            writeLaserConsumptionRetryQueue(queue);
+        }
+
+        function recordLaserConsumptionRetryResult(groupKey, result) {
+            const queue = readLaserConsumptionRetryQueue();
+            const item = queue[groupKey];
+            if (!item) return;
+            item.lastAttemptAt = Date.now();
+            item.awaitingConfirmation = result === 'created' || result === 'updated';
+            queue[groupKey] = item;
+            writeLaserConsumptionRetryQueue(queue);
+            scheduleLaserConsumptionRetry(result === 'created' ? 15000 : 5000);
+        }
+
+        function scheduleLaserConsumptionRetry(delayMs = 30000) {
+            if (laserConsumptionRetryTimer) clearTimeout(laserConsumptionRetryTimer);
+            laserConsumptionRetryTimer = setTimeout(() => {
+                laserConsumptionRetryTimer = null;
+                void processLaserConsumptionRetryQueue();
+            }, delayMs);
+        }
 
         function laserConsumptionValue(value) {
             const text = String(value ?? '').trim();
@@ -4495,6 +4629,74 @@ async function addLaserRow() {
             }
         }
 
+        function hasConfirmedLaserConsumptionLink(row, rid) {
+            if (!row || !rid) return false;
+            const group = getLaserConsumptionGroup(row);
+            return (allConsumptionRows || []).some(consumptionRow =>
+                consumptionMatchesLaserGroup(consumptionRow, group)
+                && getAutoLaserConsumptionIds(consumptionRow).includes(String(rid))
+            );
+        }
+
+        async function processLaserConsumptionRetryQueue() {
+            if (laserConsumptionRetryRunning) return;
+            const initialQueue = readLaserConsumptionRetryQueue();
+            if (!Object.keys(initialQueue).length) return;
+            laserConsumptionRetryRunning = true;
+            try {
+                await refreshConsumptionData(true);
+                const queue = readLaserConsumptionRetryQueue();
+                for (const [groupKey, item] of Object.entries(queue)) {
+                    const excludedIds = new Set((item.existingIds || []).map(String));
+                    const row = (item.rid
+                        ? allLaserRows.find(candidate => String(getPortalRowId(candidate)) === String(item.rid))
+                        : allLaserRows
+                            .filter(candidate =>
+                                laserConsumptionGroupKey(candidate) === groupKey
+                                && !excludedIds.has(String(getPortalRowId(candidate)))
+                            )
+                            .sort((a, b) => Number(getPortalRowId(b)) - Number(getPortalRowId(a)))[0]
+                    );
+                    if (!row) continue;
+
+                    const rid = getPortalRowId(row);
+                    item.rid = rid;
+                    if (!hasLaserConsumptionDate(getLaserCompleteDateRaw(row))) continue;
+                    if (!laserRequiresConsumption(row)) {
+                        delete queue[groupKey];
+                        continue;
+                    }
+                    if (hasConfirmedLaserConsumptionLink(row, rid)) {
+                        delete queue[groupKey];
+                        continue;
+                    }
+                    if (item.awaitingConfirmation && Date.now() - Number(item.lastAttemptAt || 0) < 90000) {
+                        queue[groupKey] = item;
+                        continue;
+                    }
+
+                    item.lastAttemptAt = Date.now();
+                    item.awaitingConfirmation = true;
+                    queue[groupKey] = item;
+                    writeLaserConsumptionRetryQueue(queue);
+                    const result = await syncLaserCompletionToConsumption(rid, {
+                        refreshConsumption: false,
+                        scheduleRefresh: false
+                    });
+                    item.awaitingConfirmation = result === 'created' || result === 'updated';
+                    queue[groupKey] = item;
+                }
+                writeLaserConsumptionRetryQueue(queue);
+            } catch (error) {
+                console.error('Laser consumption retry failed:', error);
+            } finally {
+                laserConsumptionRetryRunning = false;
+                if (Object.keys(readLaserConsumptionRetryQueue()).length) {
+                    scheduleLaserConsumptionRetry();
+                }
+            }
+        }
+
         function getPortalWriteRowId(body) {
             const candidates = [
                 body?.recordID, body?.recordId, body?.Id, body?.ID, body?.id,
@@ -4687,22 +4889,27 @@ async function addLaserRow() {
                 const res = await postPortalJson(laserUpdateURL, payload);
                 await readPortalWriteResult(res, 'Laser update');
                 applyLaserSavePatch(rid, payload, { renderTable: false });
+                const updatedRow = allLaserRows.find(item => String(getPortalRowId(item)) === String(rid));
                 if (hasLaserConsumptionDate(completeNorm)) {
                     if (consumptionCompleteStatus === 'No') {
+                        if (updatedRow) removeLaserConsumptionRetry(laserConsumptionGroupKey(updatedRow));
                         try {
                             btn.innerText = 'DELETING...';
                             await deleteAutoLaserConsumptionRowsForGroup(
-                                allLaserRows.find(item => String(getPortalRowId(item)) === String(rid))
+                                updatedRow
                             );
                         } catch (error) {
                             console.error('Laser consumption task delete failed:', error);
                             alert(`Requirement status was saved as No, but the linked Consumption request could not be deleted.\n${error.message}`);
                         }
                     } else {
-                        const updatedRow = allLaserRows.find(item => String(getPortalRowId(item)) === String(rid));
                         if (updatedRow) laserConsumptionSuppressedGroups.delete(laserConsumptionGroupKey(updatedRow));
-                        void syncLaserCompletionToConsumption(rid);
+                        const groupKey = queueLaserConsumptionRetry(updatedRow, { rid });
+                        void syncLaserCompletionToConsumption(rid)
+                            .then(result => recordLaserConsumptionRetryResult(groupKey, result));
                     }
+                } else if (updatedRow) {
+                    removeLaserConsumptionRetry(laserConsumptionGroupKey(updatedRow));
                 }
                 btn.innerText = 'SAVED ✓';
                 btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
@@ -8139,6 +8346,7 @@ function renderPendingTaskHub() {
             const chartGrid = document.createElement('div');
             chartGrid.className = 'ma-report-chart-grid';
             chartGrid.appendChild(createReportChartPanel('sectionChart', 'Requests By Section'));
+            chartGrid.appendChild(createReportChartPanel('templateRequestTypeChart', 'Template Request Type'));
             chartGrid.appendChild(createReportChartPanel('volumeChart', 'Completion Trends (Daily)'));
             chartGrid.appendChild(createReportChartPanel('templateValueChart', 'Developed Style/Job'));
             body.appendChild(chartGrid);
@@ -8501,6 +8709,7 @@ function renderPendingTaskHub() {
                     ],
                     charts: [
                         { id: 'sectionChart', title: 'Requests By Section' },
+                        { id: 'templateRequestTypeChart', title: 'Template Request Type' },
                         { id: 'volumeChart', title: 'Completion Trends (Daily)' },
                         { id: 'templateValueChart', title: 'Developed Style/Job' }
                     ],
@@ -9000,8 +9209,8 @@ function renderPendingTaskHub() {
             });
 
             const charts = getAvailableDashboardCharts(config.charts || []);
-            const chartCount = Math.min(3, charts.length);
             const isTemplate = title === 'Template';
+            const chartCount = Math.min(isTemplate ? 4 : 3, charts.length);
             const chartH = isTemplate ? 58 : DASHBOARD_PDF_LAYOUT.chartH;
             if (chartCount > 0) {
                 addPdfSectionLabel(pdf, 'Analytics', margin, DASHBOARD_PDF_LAYOUT.analyticsLabelY, pageW - margin * 2);
@@ -11242,6 +11451,7 @@ function renderPendingTaskHub() {
 
             // Start dashboard datasets together. Periodic refreshes remain staggered below.
             loadInitialDashboardData();
+            scheduleLaserConsumptionRetry(8000);
 
             // Stagger auto-refresh intervals so not all hit Power Automate at once
             setInterval(() => safeRun(() => refreshTemplateLogs(true)),    60000);
