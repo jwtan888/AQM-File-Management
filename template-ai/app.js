@@ -28,6 +28,7 @@ const APP_CONFIG = window.PATCH_TEMPLATE_CONFIG || {};
 const POWER_AUTOMATE_TRAINING_URL = APP_CONFIG.powerAutomateTrainingUrl || "";
 const POWER_AUTOMATE_READ_URL = APP_CONFIG.powerAutomateReadUrl || "";
 const PATCH_MODEL_URL = APP_CONFIG.patchModelUrl || "pytorch/data/patch-template-training-data.json";
+const PATCH_MODEL_CACHE_KEY = "patchTemplateModelJson";
 const APP_BASE_URL = appBaseUrl();
 const DEFAULT_FORMULA = {
   boardWidth: 150,
@@ -273,14 +274,42 @@ async function loadPatchModel() {
     const payload = await response.json();
     const model = normalizePatchModelPayload(payload);
     validatePatchModel(model);
-    state.patchModel = model;
-    state.patchModelStatus = `Loaded ${model.exampleCount || 0} patch training example(s).`;
+    setPatchModel(model, `Loaded ${model.exampleCount || 0} patch training example(s).`);
     loadEmbeddedTrainingData(payload);
   } catch (error) {
-    state.patchModel = null;
-    state.patchModelStatus = "Patch model JSON not loaded. Use a local server or upload the model JSON.";
+    const cached = loadCachedPatchModel();
+    if (cached) {
+      setPatchModel(cached, `Loaded cached model trained on ${cached.exampleCount || 0} example(s).`);
+    } else {
+      state.patchModel = null;
+      state.patchModelStatus = "Patch model JSON not loaded. Use a local server or upload the model JSON.";
+    }
   }
   updatePredictButton();
+}
+
+function setPatchModel(model, status) {
+  state.patchModel = model;
+  state.patchModelStatus = status;
+  saveCachedPatchModel(model);
+}
+
+function saveCachedPatchModel(model) {
+  try {
+    localStorage.setItem(PATCH_MODEL_CACHE_KEY, JSON.stringify(serializablePatchModel(model)));
+  } catch {
+    // localStorage is unavailable in some automated checks.
+  }
+}
+
+function loadCachedPatchModel() {
+  try {
+    const model = JSON.parse(localStorage.getItem(PATCH_MODEL_CACHE_KEY) || "null");
+    validatePatchModel(model);
+    return model;
+  } catch {
+    return null;
+  }
 }
 
 function normalizePatchModelPayload(payload) {
@@ -3195,11 +3224,12 @@ function trainingPayload() {
     examples: state.trainingExamples,
     learnedProfile: state.learnedProfile,
   };
-  if (state.patchModel) {
+  const model = state.patchModel || loadCachedPatchModel();
+  if (model) {
     payload.model = {
-      ...serializablePatchModel(state.patchModel),
+      ...serializablePatchModel(model),
       trainingDataFileName: "patch-template-training-data.json",
-      exampleCount: state.patchModel.exampleCount || state.trainingExamples.length,
+      exampleCount: model.exampleCount || state.trainingExamples.length,
     };
   }
   return payload;
@@ -3330,10 +3360,9 @@ function applyModelFromTrainingPayload(payload) {
   const model = normalizePatchModelPayload(payload);
   try {
     validatePatchModel(model);
-    state.patchModel = model;
-    state.patchModelStatus = `Loaded ${model.exampleCount || payload.examples?.length || 0} patch training example(s).`;
+    setPatchModel(model, `Loaded trained model from ${model.exampleCount || payload.examples?.length || 0} example(s).`);
   } catch {
-    // The OneDrive JSON may be training-only before the first PyTorch export.
+    state.patchModelStatus = `Loaded ${payload.examples?.length || 0} training example(s), but no valid trained model was found in the JSON.`;
   }
 }
 
