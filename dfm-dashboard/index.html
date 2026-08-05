@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DFM Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 68 48'%3E%3Cg fill='%230514ff'%3E%3Cpath d='M9 4h7L7 44H0z'/%3E%3Cpath d='M21 4h12L24 44H12z'/%3E%3Cpath d='M44 4h21c2 0 3 2 3 4l-7 28c-1 5-5 8-10 8H34c-4 0-7-3-6-7l7-26c1-4 5-7 9-7z'/%3E%3C/g%3E%3C/svg%3E">
-    <link rel="stylesheet" href="./styles.css?v=20260520e" />
+    <link rel="stylesheet" href="./styles.css?v=20260805f" />
   </head>
   <body data-page="dashboard">
     <div class="app-shell">
@@ -26,9 +26,25 @@
 
         <section class="panel benchmark-panel">
           <div class="panel-heading">
-            <h2>Nike Construction Code Utilization</h2>
+            <h2>Nike Construction Code Utilization (Nike Oct-2025 update)</h2>
           </div>
           <div id="benchmark-chart" class="benchmark-chart"></div>
+        </section>
+
+        <section class="panel season-top-ten-panel">
+          <div class="panel-heading">
+            <h2>Top 10 Construction Codes by Season</h2>
+            <span class="panel-note">Non-M codes with positive FG quantity</span>
+          </div>
+          <div id="season-top-ten" class="season-top-ten"></div>
+        </section>
+
+        <section class="panel season-top-panel">
+          <div class="panel-heading">
+            <h2>Top 3 Construction Codes by Season</h2>
+            <span class="panel-note">Non-M codes with FG quantity · Spring followed by Fall</span>
+          </div>
+          <div id="season-top-three" class="season-top-three"></div>
         </section>
 
         <section class="panel panel--feature investment-panel">
@@ -104,8 +120,8 @@
       })();
 
     </script>
-    <script src="./seed-data.js?v=20260805041534"></script>
+    <script src="./seed-data.js?v=20260805040608"></script>
     <script src="./construction-master.js?v=20260522154034"></script>
-    <script src="./app.js?v=20260727073732"></script>
+    <script src="./app.js?v=20260805h"></script>
   </body>
 </html>

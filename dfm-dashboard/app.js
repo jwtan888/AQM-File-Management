@@ -45,7 +45,9 @@
     seasonTiles: document.getElementById("season-tiles"),
     kpiGrid: document.getElementById("kpi-grid"),
     benchmarkChart: document.getElementById("benchmark-chart"),
+    seasonTopTen: document.getElementById("season-top-ten"),
     investmentBoard: document.getElementById("investment-board"),
+    seasonTopThree: document.getElementById("season-top-three"),
     investmentControls: document.getElementById("investment-controls"),
     filteredSummary: document.getElementById("filtered-summary"),
     seasonBars: document.getElementById("season-bars"),
@@ -116,6 +118,10 @@
       defectOnly: false,
     },
   };
+
+  if (Array.isArray(seedData.summaryRows) && seedData.summaryRows.length) {
+    state.investmentNotes = buildInvestmentNotesFromSummaryRows(seedData.summaryRows, state.investmentNotes);
+  }
 
   function getSharedSessionUser() {
     return (window.sessionStorage.getItem(SHARED_SESSION_KEY) || "").trim();
@@ -1466,19 +1472,64 @@
     });
 
     const nonMRecords = records.filter((record) => record.modification === "Non-M");
+    const nonMCodeStyleMap = new Map();
+    nonMRecords.forEach((record) => {
+      const key = record.constructionCode || "Unknown";
+      const seasonKey = record.season || "Unknown";
+      if (!nonMCodeStyleMap.has(key)) {
+        nonMCodeStyleMap.set(key, new Map());
+      }
+      const styleKey = record.styleKey || `${seasonKey}__${record.id || record.no || "row"}`;
+      const codeStyles = nonMCodeStyleMap.get(key);
+      if (!codeStyles.has(styleKey)) {
+        codeStyles.set(styleKey, { season: seasonKey, value: record.fgQty || 0 });
+      }
+    });
+    const seasonTopThreeMap = new Map();
+    nonMCodeStyleMap.forEach((styles, code) => {
+      styles.forEach(({ season, value }) => {
+        if (!season || code === "Unknown" || !(value > 0)) {
+          return;
+        }
+        if (!seasonTopThreeMap.has(season)) {
+          seasonTopThreeMap.set(season, new Map());
+        }
+        const seasonCodes = seasonTopThreeMap.get(season);
+        seasonCodes.set(code, (seasonCodes.get(code) || 0) + value);
+      });
+    });
+    const seasonalRankings = Array.from(seasonTopThreeMap.entries()).map(([season, codeVolumes]) => {
+      const total = seasonMap.get(season) || 0;
+      return {
+        season,
+        total,
+        group: /^(SP|SU)/i.test(season) ? "Spring" : /^(FA|HO)/i.test(season) ? "Fall" : "Other",
+        rankings: Array.from(codeVolumes.entries())
+          .map(([code, value]) => ({ code, value, share: total ? value / total : 0 }))
+          .sort((a, b) => b.value - a.value || a.code.localeCompare(b.code)),
+      };
+    });
+    const seasonTopTen = seasonalRankings
+      .map((row) => ({ ...row, rankings: row.rankings.slice(0, 10) }))
+      .sort((a, b) => compareSeasons(a.season, b.season));
+    const seasonTopThree = seasonalRankings
+      .map((row) => ({ ...row, rankings: row.rankings.slice(0, 3) }))
+      .sort((a, b) => compareSeasons(a.season, b.season));
     const nonMCodeMap = new Map();
     const nonMSeasonCodeMap = new Map();
     const nonMCodeSeasonMap = new Map();
     nonMRecords.forEach((record) => {
       const key = record.constructionCode || "Unknown";
-      nonMCodeMap.set(key, (nonMCodeMap.get(key) || 0) + 1);
       const seasonKey = record.season || "Unknown";
       nonMSeasonCodeMap.set(seasonKey, (nonMSeasonCodeMap.get(seasonKey) || 0) + 1);
-      if (!nonMCodeSeasonMap.has(key)) {
-        nonMCodeSeasonMap.set(key, new Map());
-      }
-      const seasonCounts = nonMCodeSeasonMap.get(key);
-      seasonCounts.set(seasonKey, (seasonCounts.get(seasonKey) || 0) + (record.fgQty || 0));
+    });
+    nonMCodeStyleMap.forEach((styles, code) => {
+      const seasonCounts = new Map();
+      styles.forEach(({ season, value }) => {
+        seasonCounts.set(season, (seasonCounts.get(season) || 0) + value);
+      });
+      nonMCodeMap.set(code, styles.size);
+      nonMCodeSeasonMap.set(code, seasonCounts);
     });
 
     const investmentSeasonLabels = Array.from(nonMSeasonCodeMap.keys())
@@ -1529,7 +1580,7 @@
           value: seasonCounts.get(season) || 0,
         }));
         const fallbackTotalVolume = sum(seasonVolumes.map((item) => item.value));
-        const totalVolume = Number(manual.currentTotalFgQty || 0) || fallbackTotalVolume;
+        const totalVolume = fallbackTotalVolume;
         const factor = parseImprovementFactor(manual.improvementType);
         return {
           label,
@@ -1581,28 +1632,44 @@
           .sort((a, b) => b.totalVolume - a.totalVolume || a.label.localeCompare(b.label))
           .slice(0, 20));
 
+    const seasonLabels = Array.from(seasonStyleMap.keys()).filter(Boolean).sort(compareSeasons);
+    const fgSeasonLabels = seasonLabels.filter((season) => (seasonMap.get(season) || 0) > 0);
+    const seasonPeriod = seasonLabels.length
+      ? seasonLabels.length === 1
+        ? seasonLabels[0]
+        : `${seasonLabels[0]}–${seasonLabels[seasonLabels.length - 1]}`
+      : "No season";
+    const fgSeasonPeriod = fgSeasonLabels.length
+      ? fgSeasonLabels.length === 1
+        ? fgSeasonLabels[0]
+        : `${fgSeasonLabels[0]}–${fgSeasonLabels[fgSeasonLabels.length - 1]}`
+      : "No season";
+    const masterCodes = getMasterConstructionCodeSet();
+    const activeNonMTypeCodeSet = new Set(
+      nonMRecords.map((record) => normalizeMvcCode(record.typeCode || record.constructionCode)).filter(Boolean),
+    );
+    const nikeLibraryCodeQty = Array.from(activeNonMTypeCodeSet).filter((code) => masterCodes.has(code)).length;
+    const notInNikeLibraryCodeQty = Math.max(0, codeMap.size - nikeLibraryCodeQty);
+
     return {
       styleSummary: styleSummary.sort((a, b) => b.fgQty - a.fgQty),
       kpis: [
         {
-          label: "Total Style",
+          label: `Total Style (${seasonPeriod})`,
           value: formatNumber(styleSummary.length),
           subtext: "",
         },
         {
-          label: "Total FG QTY",
+          label: `Total FG QTY (${fgSeasonPeriod})`,
           value: formatNumber(totalFg),
           subtext: "",
         },
         {
           label: "Total Unique Construction Code",
           value: formatNumber(codeMap.size),
-          subtext: "",
-        },
-        {
-          label: "construction occuracy",
-          value: formatNumber(records.length),
-          subtext: "",
+          subtext: masterCodes.size
+            ? `${formatNumber(nikeLibraryCodeQty)} in Nike Library · ${formatNumber(notInNikeLibraryCodeQty)} not in Nike Library`
+            : "Nike Library updating…",
         },
       ],
       seasonBars: Array.from(seasonMap.entries())
@@ -1683,6 +1750,8 @@
       })(),
       investmentSeasonLabels,
       investmentBoard: investmentBoardRows,
+      seasonTopThree,
+      seasonTopTen,
     };
   }
 
@@ -1711,8 +1780,10 @@
       }
       renderKpis(analytics.kpis);
       renderBenchmarkChart(analytics.benchmark);
+      renderSeasonTopTen(analytics.seasonTopTen);
       renderInvestmentControls();
       renderInvestmentBoard(analytics.investmentBoard, analytics.investmentSeasonLabels, canEditDfmSummary());
+      renderSeasonTopThree(analytics.seasonTopThree);
       renderBars(elements.seasonBars, analytics.seasonBars, formatNumber);
       renderBars(elements.categoryBars, analytics.categoryBars, formatNumber);
       renderModSummary(analytics.modSummary);
@@ -2056,6 +2127,126 @@
         </tbody>
       </table>
     `;
+  }
+
+  function renderSeasonTopThree(rows) {
+    if (!elements.seasonTopThree) {
+      return;
+    }
+    if (!rows.length) {
+      elements.seasonTopThree.innerHTML = '<div class="empty-state">No seasonal FG quantity available.</div>';
+      return;
+    }
+
+    elements.seasonTopThree.innerHTML = `
+      <table class="season-top-table">
+        <thead>
+          <tr>
+            <th>Season Group</th>
+            <th>Season</th>
+            <th>#1 Construction</th>
+            <th>#2 Construction</th>
+            <th>#3 Construction</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+                <tr>
+                  <td class="season-top-group">${escapeHtml(row.group)}</td>
+                  <td class="season-top-season">${escapeHtml(row.season)}</td>
+                  ${[0, 1, 2]
+                    .map((rank) => {
+                      const item = row.rankings[rank];
+                      return item ? `<td>${renderSeasonTopCodeCell(item)}</td>` : "<td>-</td>";
+                    })
+                    .join("")}
+                </tr>
+              `,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function renderSeasonTopTen(rows) {
+    if (!elements.seasonTopTen) {
+      return;
+    }
+    if (!rows.length) {
+      elements.seasonTopTen.innerHTML = '<div class="empty-state">No seasonal FG quantity available.</div>';
+      return;
+    }
+
+    elements.seasonTopTen.innerHTML = `
+      <div class="season-top-ten-grid">
+        ${rows
+          .map((row) => {
+            const maxValue = row.rankings[0]?.value || 0;
+            return `
+              <article class="season-top-ten-card">
+                <div class="season-top-ten-card-heading">
+                  <h3>Top 10 Construction Codes (${escapeHtml(row.season)})</h3>
+                  <span>Total Qty: ${escapeHtml(formatNumber(row.total))}</span>
+                </div>
+                <table>
+                  <thead>
+                    <tr><th>Rank</th><th>Code</th><th>Quantity (Units)</th><th>% of Season</th></tr>
+                  </thead>
+                  <tbody>
+                    ${row.rankings
+                      .map(
+                        (item, index) => `
+                          <tr>
+                            <td><span class="season-top-ten-rank">${index + 1}</span></td>
+                            <td class="season-top-ten-code">${renderSeasonTopTenCodeCell(item)}</td>
+                            <td>
+                              <div class="season-top-ten-quantity">
+                                <span class="season-top-ten-bar"><span style="width:${maxValue ? Math.round((item.value / maxValue) * 100) : 0}%"></span></span>
+                                <span>${escapeHtml(formatNumber(item.value))}</span>
+                              </div>
+                            </td>
+                            <td>${escapeHtml(`${(item.share * 100).toFixed(2)}%`)}</td>
+                          </tr>
+                        `,
+                      )
+                      .join("")}
+                  </tbody>
+                </table>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderSeasonTopCodeCell(item) {
+    const mvcItem = findMvcGalleryItem(item.code);
+    const details = mvcItem ? [mvcItem.rating, mvcItem.complexity, mvcItem.endUse].filter(Boolean).join(" | ") : "";
+    const image = mvcItem?.imageUrl
+      ? `<a class="season-top-image" href="${escapeHtml(mvcItem.imageUrl)}" target="_blank" rel="noopener" data-mvc-preview="${escapeHtml(mvcItem.imageUrl)}" data-mvc-code="${escapeHtml(item.code)}" data-mvc-details="${escapeHtml(details)}">
+          <img src="${escapeHtml(mvcItem.imageUrl)}" alt="${escapeHtml(`${item.code} construction`)}" loading="lazy" />
+        </a>`
+      : "";
+    return `
+      <div class="season-top-code">
+        ${image}
+        <strong>${escapeHtml(item.code)}</strong>
+        <span>${escapeHtml(formatNumber(item.value))} FG</span>
+      </div>
+    `;
+  }
+
+  function renderSeasonTopTenCodeCell(item) {
+    const mvcItem = findMvcGalleryItem(item.code);
+    if (!mvcItem?.imageUrl) {
+      return escapeHtml(item.code);
+    }
+    const details = [mvcItem.rating, mvcItem.complexity, mvcItem.endUse].filter(Boolean).join(" | ");
+    return `<a class="season-top-ten-code-link" href="${escapeHtml(mvcItem.imageUrl)}" target="_blank" rel="noopener" data-mvc-preview="${escapeHtml(mvcItem.imageUrl)}" data-mvc-code="${escapeHtml(item.code)}" data-mvc-details="${escapeHtml(details)}">${escapeHtml(item.code)}</a>`;
   }
 
   function renderSeasonDonut(items) {
@@ -3309,6 +3500,56 @@
           state.investmentEditingCode = null;
           render();
         });
+      });
+    }
+
+    if (elements.seasonTopThree) {
+      elements.seasonTopThree.addEventListener("mouseover", (event) => {
+        const link = event.target.closest(".season-top-image[data-mvc-preview]");
+        if (link) {
+          showMvcPreview(link);
+        }
+      });
+      elements.seasonTopThree.addEventListener("focusin", (event) => {
+        const link = event.target.closest(".season-top-image[data-mvc-preview]");
+        if (link) {
+          showMvcPreview(link);
+        }
+      });
+      elements.seasonTopThree.addEventListener("mouseout", (event) => {
+        if (event.target.closest(".season-top-image[data-mvc-preview]")) {
+          hideMvcPreview();
+        }
+      });
+      elements.seasonTopThree.addEventListener("focusout", (event) => {
+        if (event.target.closest(".season-top-image[data-mvc-preview]")) {
+          hideMvcPreview();
+        }
+      });
+    }
+
+    if (elements.seasonTopTen) {
+      elements.seasonTopTen.addEventListener("mouseover", (event) => {
+        const link = event.target.closest(".season-top-ten-code-link[data-mvc-preview]");
+        if (link) {
+          showMvcPreview(link);
+        }
+      });
+      elements.seasonTopTen.addEventListener("focusin", (event) => {
+        const link = event.target.closest(".season-top-ten-code-link[data-mvc-preview]");
+        if (link) {
+          showMvcPreview(link);
+        }
+      });
+      elements.seasonTopTen.addEventListener("mouseout", (event) => {
+        if (event.target.closest(".season-top-ten-code-link[data-mvc-preview]")) {
+          hideMvcPreview();
+        }
+      });
+      elements.seasonTopTen.addEventListener("focusout", (event) => {
+        if (event.target.closest(".season-top-ten-code-link[data-mvc-preview]")) {
+          hideMvcPreview();
+        }
       });
     }
 

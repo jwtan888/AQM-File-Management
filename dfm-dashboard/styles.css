@@ -208,6 +208,10 @@ textarea {
   gap: 1rem;
 }
 
+.dashboard > * {
+  min-width: 0;
+}
+
 .panel,
 .kpi-card {
   background: var(--panel);
@@ -578,7 +582,7 @@ textarea {
 }
 
 .kpi-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .kpi-card {
@@ -811,6 +815,234 @@ textarea {
 
 .investment-board {
   overflow-x: auto;
+}
+
+.season-top-ten-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.season-top-ten-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.season-top-ten-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.season-top-ten-card-heading h3,
+.season-top-ten-card-heading span {
+  margin: 0;
+}
+
+.season-top-ten-card-heading h3 {
+  color: var(--text);
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+}
+
+.season-top-ten-card-heading span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.season-top-ten-card table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.season-top-ten-card th,
+.season-top-ten-card td {
+  padding: 0.42rem 0.55rem;
+  border-bottom: 1px solid rgba(141, 152, 179, 0.14);
+  text-align: left;
+  font-size: 0.78rem;
+}
+
+.season-top-ten-card th {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.67rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.season-top-ten-card tr:last-child td {
+  border-bottom: 0;
+}
+
+.season-top-ten-card th:first-child,
+.season-top-ten-card td:first-child {
+  width: 2.65rem;
+  text-align: center;
+}
+
+.season-top-ten-card th:nth-child(2),
+.season-top-ten-card td:nth-child(2) {
+  width: 4.2rem;
+}
+
+.season-top-ten-card th:last-child,
+.season-top-ten-card td:last-child {
+  width: 4.8rem;
+  text-align: right;
+}
+
+.season-top-ten-rank {
+  display: inline-grid;
+  width: 1.3rem;
+  height: 1.3rem;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(141, 152, 179, 0.16);
+  font-weight: 800;
+}
+
+.season-top-ten-card tr:nth-child(1) .season-top-ten-rank {
+  color: #ffffff;
+  background: #ffb31a;
+}
+
+.season-top-ten-card tr:nth-child(2) .season-top-ten-rank {
+  color: #ffffff;
+  background: #9aa0ad;
+}
+
+.season-top-ten-card tr:nth-child(3) .season-top-ten-rank {
+  color: #ffffff;
+  background: #b95e39;
+}
+
+.season-top-ten-code {
+  font-weight: 800;
+}
+
+.season-top-ten-code-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.season-top-ten-code-link:hover,
+.season-top-ten-code-link:focus-visible {
+  text-decoration: underline;
+}
+
+.season-top-ten-quantity {
+  display: grid;
+  grid-template-columns: minmax(2rem, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.season-top-ten-bar {
+  display: block;
+  height: 0.58rem;
+  border-radius: 999px;
+  background: rgba(30, 87, 216, 0.1);
+  overflow: hidden;
+}
+
+.season-top-ten-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #1769e8;
+}
+
+.season-top-three {
+  overflow-x: auto;
+}
+
+.season-top-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.season-top-table th,
+.season-top-table td {
+  padding: 0.72rem 0.8rem;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.season-top-table th {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.88);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.season-top-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.season-top-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.season-top-table td strong,
+.season-top-table td span {
+  display: block;
+}
+
+.season-top-code {
+  min-width: 112px;
+  margin: 0 auto;
+}
+
+.season-top-image {
+  display: block;
+  width: 112px;
+  margin: 0 auto 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.season-top-image img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+}
+
+.season-top-table td strong,
+.season-top-season {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.season-top-table td span {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.season-top-group {
+  font-weight: 700;
 }
 
 .investment-controls {
@@ -1644,6 +1876,7 @@ textarea {
   .spotlight-grid,
   .analytics-grid,
   .kpi-grid,
+  .season-top-ten-grid,
   .dual-grid,
   .style-cards,
   .record-cards,
@@ -1731,6 +1964,10 @@ textarea {
 
   .dashboard {
     gap: 0.8rem;
+  }
+
+  .season-top-ten-grid {
+    grid-template-columns: 1fr;
   }
 
   .panel,
