@@ -1993,7 +1993,7 @@
       },
       {
         key: "investmentDecision",
-        label: "Investment Decision",
+        label: "Investment Plan",
         role: "decision",
         type: "select",
       },
@@ -2031,7 +2031,7 @@
       improvementType: "Improvement Type",
       capacityUnlock: "Capacity Unlock (CU)",
       improvementValue: "Improvement Value",
-      investmentDecision: "Investment Decision",
+      investmentDecision: "Investment Plan",
     };
 
     elements.investmentControls.innerHTML = `
@@ -2108,7 +2108,7 @@
                               ${["", "Yes", "No", "Review"]
                                 .map((option) => {
                                   const selected = option === row[column.key] ? " selected" : "";
-                                  const label = option || "Select decision";
+                                  const label = option || "Select plan";
                                   return `<option value="${escapeHtml(option)}"${selected}>${escapeHtml(label)}</option>`;
                                 })
                                 .join("")}
@@ -2667,7 +2667,7 @@
       }
       clearPendingSummaryUpsert(code);
       console.error(error);
-      window.alert(`Unable to save DFM Summary decision.\n${error.message}`);
+      window.alert(`Unable to save DFM Summary plan.\n${error.message}`);
     }
   }
 
@@ -2886,8 +2886,8 @@
         valueFromRow(row, ["Improvement Value", "improvementValue", "Improvement_x0020_Value"]) ||
         valueFromRowFuzzy(row, ["Improvement Value", "improvementValue"]),
       investmentDecision:
-        valueFromRow(row, ["Investment Decision", "investmentDecision"]) ||
-        valueFromRowFuzzy(row, ["Investment Decision", "investmentDecision"]),
+        valueFromRow(row, ["Investment Plan", "Investment Decision", "investmentPlan", "investmentDecision"]) ||
+        valueFromRowFuzzy(row, ["Investment Plan", "Investment Decision", "investmentPlan", "investmentDecision"]),
       updatedBy:
         valueFromRow(row, ["Updated By", "updatedBy"]) ||
         valueFromRowFuzzy(row, ["Updated By", "updatedBy"]),
