@@ -48,10 +48,14 @@ def read_shared_strings(archive):
 def workbook_sheet_paths(archive):
     workbook = ET.fromstring(archive.read("xl/workbook.xml"))
     rels = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
-    rel_map = {
-        rel.attrib["Id"]: "xl/" + rel.attrib["Target"]
-        for rel in rels
-    }
+    rel_map = {}
+    for rel in rels:
+        target = rel.attrib["Target"]
+        if target.startswith("/"):
+            target = target.lstrip("/")
+        else:
+            target = "xl/" + target
+        rel_map[rel.attrib["Id"]] = target
 
     sheet_paths = OrderedDict()
     for sheet in workbook.find("main:sheets", NS):
@@ -123,6 +127,53 @@ def first_present_value(row, *values):
     return ""
 
 
+SUMMARY_SHEET_NAME = "DFM Summary Top 20"
+SUMMARY_HEADERS = (
+    "Construction Code",
+    "Current Total FG QTY",
+    "Current Rank",
+    "Active Top 20",
+    "SAM Improvement",
+    "Improvement Type",
+    "Improvement Value",
+    "Investment Plan",
+    "Updated By",
+    "Updated At",
+)
+
+
+def build_summary_rows(summary_rows):
+    if len(summary_rows) < 2:
+        return []
+
+    header_row = summary_rows[0]
+    column_by_header = {
+        clean_text(value): column
+        for column, value in header_row.items()
+        if clean_text(value)
+    }
+
+    rows = []
+    construction_column = column_by_header.get("Construction Code")
+    if not construction_column:
+        return rows
+
+    for source_row, row in enumerate(summary_rows[1:], start=2):
+        construction_code = clean_text(row.get(construction_column, ""))
+        if not construction_code:
+            continue
+
+        entry = {}
+        for header in SUMMARY_HEADERS:
+            aliases = (header, "Investment Decision") if header == "Investment Plan" else (header,)
+            column = next((column_by_header.get(alias) for alias in aliases if column_by_header.get(alias)), None)
+            entry[header] = clean_text(row.get(column, "")) if column else ""
+        entry["sourceRow"] = source_row
+        rows.append(entry)
+
+    return rows
+
+
 def build_seed_data():
     with zipfile.ZipFile(str(WORKBOOK_PATH)) as archive:
         shared_strings = read_shared_strings(archive)
@@ -157,6 +208,15 @@ def build_seed_data():
                 sheet_paths[metadata_sheet_name],
             )
             if metadata_sheet_name
+            else []
+        )
+        summary_rows = (
+            read_sheet_rows(
+                archive,
+                shared_strings,
+                sheet_paths[SUMMARY_SHEET_NAME],
+            )
+            if SUMMARY_SHEET_NAME in sheet_paths
             else []
         )
 
@@ -195,6 +255,10 @@ def build_seed_data():
     style_fg_values = defaultdict(list)
     records = []
     for index, row in enumerate(collection_rows[1:], start=2):
+        construction_code = clean_text(row.get("G", ""))
+        if not construction_code:
+            continue
+
         excel_no = clean_text(row.get("A", "")) or str(index - 1)
         row_id = first_present_value(
             row.get(row_id_column, "") if row_id_column else "",
@@ -210,7 +274,7 @@ def build_seed_data():
         if season and style and fg_number is not None:
             style_fg_values[style_key].append(fg_number)
 
-        type_code = clean_text(row.get("H", "")) or clean_text(row.get("G", ""))
+        type_code = clean_text(row.get("H", "")) or construction_code
         defect_info = defect_catalog.get(type_code, {"defects": []})
         total_intensity = 0
         for defect in defect_info.get("defects", []):
@@ -227,7 +291,7 @@ def build_seed_data():
                 "protoStage": clean_text(row.get("D", "")),
                 "style": style,
                 "styleKey": style_key,
-                "constructionCode": clean_text(row.get("G", "")),
+                "constructionCode": construction_code,
                 "typeCode": type_code,
                 "modification": clean_text(row.get("I", "")),
                 "remark": clean_text(row.get("J", "")),
@@ -259,15 +323,34 @@ def build_seed_data():
             )
 
     generated_at = datetime.now(timezone.utc).isoformat()
+    summary_seed_rows = build_summary_rows(summary_rows)
+    summary_totals = defaultdict(float)
+    seen_code_styles = set()
+    for record in records:
+        if record["modification"] != "Non-M":
+            continue
+        code = clean_text(record["constructionCode"])
+        style_key = record["styleKey"] or record["id"]
+        code_style_key = (code, style_key)
+        if code_style_key in seen_code_styles:
+            continue
+        seen_code_styles.add(code_style_key)
+        summary_totals[code] += record["fgQty"] or 0
+    for row in summary_seed_rows:
+        code = clean_text(row["Construction Code"])
+        if code in summary_totals:
+            row["Current Total FG QTY"] = str(maybe_number(str(summary_totals[code])))
     payload = {
         "meta": {
             "sourceFile": WORKBOOK_PATH.name,
             "recordCount": len(records),
+            "summaryRowCount": len(summary_seed_rows),
             "styleSeasonCount": len(style_fg_values),
             "generatedBy": "scripts/build_seed_data.py",
             "generatedAt": generated_at,
         },
         "records": records,
+        "summaryRows": summary_seed_rows,
         "defectCatalog": list(defect_catalog.values()),
         "warnings": warnings,
     }
