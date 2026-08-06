@@ -193,6 +193,7 @@
     const defaults = {
       samImprovement: true,
       improvementType: true,
+      capacityUnlock: true,
       improvementValue: true,
       investmentDecision: true,
     };
@@ -585,6 +586,23 @@
     return formatCurrency(sam * Number(totalVolume || 0) * factor);
   }
 
+  function calculateCapacityUnlock(samImprovement, totalVolume) {
+    const sam = parseImprovementFactor(samImprovement);
+    const volume = Number(totalVolume);
+    if (!Number.isFinite(sam) || sam === 0 || !Number.isFinite(volume) || volume === 0) {
+      return null;
+    }
+    return (sam * volume) / 15;
+  }
+
+  function formatCapacityUnlock(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric === 0) {
+      return "-";
+    }
+    return formatNumber(Math.round(numeric));
+  }
+
   function isFormulaText(value) {
     return /^\s*=/.test(String(value || ""));
   }
@@ -651,6 +669,9 @@
   }
 
   function formatInvestmentFieldValue(columnKey, value) {
+    if (columnKey === "capacityUnlock") {
+      return formatCapacityUnlock(value);
+    }
     if (columnKey !== "improvementValue") {
       return cleanText(value) || "-";
     }
@@ -1588,6 +1609,7 @@
           seasonVolumes,
           samImprovement: cleanText(manual.samImprovement),
           improvementType: cleanText(manual.improvementType),
+          capacityUnlock: calculateCapacityUnlock(manual.samImprovement, totalVolume),
           improvementValue: calculateImprovementValue(
             manual.samImprovement,
             totalVolume,
@@ -1619,6 +1641,7 @@
               seasonVolumes,
               samImprovement: cleanText(manual.samImprovement),
               improvementType: cleanText(manual.improvementType),
+              capacityUnlock: calculateCapacityUnlock(manual.samImprovement, totalVolume),
               improvementValue: calculateImprovementValue(
                 manual.samImprovement,
                 totalVolume,
@@ -1958,6 +1981,11 @@
         placeholder: "Improvement type",
       },
       {
+        key: "capacityUnlock",
+        label: "Capacity Unlock (CU)",
+        displayOnly: true,
+      },
+      {
         key: "improvementValue",
         label: "Improvement Value",
         role: "improvement-value",
@@ -2001,6 +2029,7 @@
     const labels = {
       samImprovement: "SAM Improvement",
       improvementType: "Improvement Type",
+      capacityUnlock: "Capacity Unlock (CU)",
       improvementValue: "Improvement Value",
       investmentDecision: "Investment Decision",
     };
