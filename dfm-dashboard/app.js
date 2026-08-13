@@ -2217,7 +2217,7 @@
             return `
               <article class="season-top-ten-card">
                 <div class="season-top-ten-card-heading">
-                  <h3>Top 10 Construction Codes (${escapeHtml(row.season)})</h3>
+                  <h3>${escapeHtml(row.season)}</h3>
                   <span>Total Qty: ${escapeHtml(formatNumber(row.total))}</span>
                 </div>
                 <table>
