@@ -21,9 +21,9 @@ button.portal-link-status {text-decoration:underline;text-underline-offset:3px}.
 .portal-work-table thead {position:sticky;top:0;z-index:2}
 #laserTable td:last-child,#content-laser thead th:last-child {width:130px;min-width:130px;max-width:130px;white-space:normal}
 #laserTable td:last-child .portal-link-status {max-width:110px;font-size:11px;padding:4px 6px}
-#laserTable td:nth-child(15),#content-laser thead th:nth-child(15) {width:340px;min-width:340px;max-width:440px;white-space:normal;overflow-wrap:anywhere}
-#laserTable td:nth-child(15) .manual-input {width:100%!important;min-width:0;box-sizing:border-box}
-#laserTable td:nth-child(15)>span {font-size:13px}
+:is(#laserTable td:nth-child(15),#content-laser thead th:nth-child(15),#tempTable td:nth-child(20),#content-template thead th:nth-child(20),#consumptionTable td:nth-child(13),#content-consumption thead th:nth-child(13),#supportTable td:nth-child(14),#content-support thead th:nth-child(14),#downTable td:nth-child(26),#content-downfilling thead th:nth-child(26),#patchTable td:nth-child(23),#content-patch thead th:nth-child(23)) {width:340px;min-width:340px;max-width:340px;white-space:normal;overflow-wrap:anywhere}
+:is(#laserTable td:nth-child(15),#tempTable td:nth-child(20),#consumptionTable td:nth-child(13),#supportTable td:nth-child(14),#downTable td:nth-child(26),#patchTable td:nth-child(23)) .manual-input {width:100%!important;min-width:0;box-sizing:border-box}
+:is(#laserTable td:nth-child(15),#tempTable td:nth-child(20),#consumptionTable td:nth-child(13),#supportTable td:nth-child(14),#downTable td:nth-child(26),#patchTable td:nth-child(23))>span {font-size:13px}
 .portal-work-table tbody td {font-size:13px}.portal-work-content .manual-input {min-height:32px;font-size:13px}
 .portal-linked-row {outline:3px solid #0071e3;outline-offset:-3px;background:#edf5ff!important}
 .portal-review-banner {display:flex;gap:16px;align-items:center;justify-content:space-between;background:#153b64;color:#fff;padding:13px 24px;font-size:14px;flex-wrap:wrap}.portal-review-banner strong {display:block}.portal-review-banner small {color:#d5e5f6;font-size:12px}.portal-review-banner button {border:1px solid #7d9bbd;border-radius:8px;padding:7px 12px;color:white;font-weight:600}
