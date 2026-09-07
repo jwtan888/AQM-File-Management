@@ -17,7 +17,7 @@
 button.portal-link-status {text-decoration:underline;text-underline-offset:3px}.portal-link-status.success {background:#e6f6ee;color:#14623d}.portal-link-status.pending {background:#fff3db;color:#7c4e0c}.portal-link-status.error {background:#fff0ee;color:#a92f25}
 .portal-new-entry {border:1px solid #dbe3ed;border-radius:12px;background:#fff;margin-bottom:16px}.portal-new-entry>summary {cursor:pointer;padding:15px 18px;font-size:14px;font-weight:650;color:#1760a8}.portal-new-entry>div {border:0;box-shadow:none;margin-bottom:0}
 .portal-work-content label {font-size:12px;color:#526174;letter-spacing:.02em}
-.portal-work-table {max-height:65vh;overflow:auto}
+.portal-work-table {height:auto;max-height:none;overflow-x:auto;overflow-y:hidden;scroll-margin-top:12px}
 .portal-work-table thead {position:sticky;top:0;z-index:2}
 #laserTable td:last-child,#content-laser thead th:last-child {width:130px;min-width:130px;max-width:130px;white-space:normal}
 #laserTable td:last-child .portal-link-status {max-width:110px;font-size:11px;padding:4px 6px}
